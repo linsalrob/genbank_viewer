@@ -1,44 +1,50 @@
-import { pan, zoom, type Viewport } from './viewport'
+import { pan, zoom, type GenomeViewport } from './viewport'
 
 export function bindInteractions(
   canvas: HTMLCanvasElement,
-  getView: () => Viewport,
-  setView: (view: Viewport) => void,
+  getView: () => GenomeViewport,
+  setView: (view: GenomeViewport) => void,
   getGenomeLength: () => number,
 ): () => void {
   let dragging = false
   let lastX = 0
-
-  const onDown = (e: MouseEvent) => {
-    dragging = true
-    lastX = e.clientX
-  }
-  const onUp = () => {
-    dragging = false
-  }
-  const onMove = (e: MouseEvent) => {
+  const localX = (event: MouseEvent | WheelEvent) => event.clientX - canvas.getBoundingClientRect().left
+  const onDown = (event: MouseEvent) => { dragging = true; lastX = event.clientX }
+  const onUp = () => { dragging = false }
+  const onMove = (event: MouseEvent) => {
     if (!dragging) return
-    const dx = e.clientX - lastX
-    lastX = e.clientX
-    setView(pan(getView(), dx, getGenomeLength()))
+    const delta = event.clientX - lastX
+    lastX = event.clientX
+    setView(pan(getView(), delta, getGenomeLength()))
   }
-  const onWheel = (e: WheelEvent) => {
-    e.preventDefault()
-    const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const factor = e.deltaY > 0 ? 1 / 1.15 : 1.15
-    setView(zoom(getView(), x, factor, getGenomeLength()))
+  const onWheel = (event: WheelEvent) => {
+    event.preventDefault()
+    setView(zoom(getView(), localX(event), Math.exp(-event.deltaY * 0.002), getGenomeLength()))
   }
-
+  const onDoubleClick = (event: MouseEvent) =>
+    setView(zoom(getView(), localX(event), 2, getGenomeLength()))
+  const onKey = (event: KeyboardEvent) => {
+    const view = getView()
+    if (event.key === 'ArrowLeft') setView(pan(view, view.width * -0.1, getGenomeLength()))
+    else if (event.key === 'ArrowRight') setView(pan(view, view.width * 0.1, getGenomeLength()))
+    else if (event.key === '+' || event.key === '=') setView(zoom(view, view.width / 2, 1.5, getGenomeLength()))
+    else if (event.key === '-') setView(zoom(view, view.width / 2, 1 / 1.5, getGenomeLength()))
+    else if (event.key === 'Home') setView({ ...view, start: 0, end: getGenomeLength() })
+    else return
+    event.preventDefault()
+  }
   canvas.addEventListener('mousedown', onDown)
   window.addEventListener('mouseup', onUp)
   canvas.addEventListener('mousemove', onMove)
   canvas.addEventListener('wheel', onWheel, { passive: false })
-
+  canvas.addEventListener('dblclick', onDoubleClick)
+  canvas.addEventListener('keydown', onKey)
   return () => {
     canvas.removeEventListener('mousedown', onDown)
     window.removeEventListener('mouseup', onUp)
     canvas.removeEventListener('mousemove', onMove)
     canvas.removeEventListener('wheel', onWheel)
+    canvas.removeEventListener('dblclick', onDoubleClick)
+    canvas.removeEventListener('keydown', onKey)
   }
 }
