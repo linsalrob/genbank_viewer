@@ -188,6 +188,11 @@ fn parse_features(lines: &[&str], record_id: &str) -> Result<(Vec<Feature>, usiz
 
             while i < lines.len() {
                 let qline = lines[i];
+                // The feature table ends at the next GenBank section. Leave its
+                // header for the outer parser so it can read the sequence.
+                if is_header_line(qline) {
+                    break;
+                }
                 if qline.starts_with("     ") {
                     let payload = qline.get(5..).unwrap_or("");
                     let k = payload.get(..16).unwrap_or(payload).trim();
@@ -265,6 +270,9 @@ fn parse_qualifier(lines: &[&str], line_number: usize) -> Result<(Qualifier, usi
     }
 
     while in_quote && consumed < lines.len() {
+        if is_header_line(lines[consumed]) {
+            break;
+        }
         let next = lines[consumed].trim();
         if !value.is_empty() {
             value.push(' ');
@@ -426,6 +434,7 @@ mod tests {
         assert_eq!(rec.id, "TEST");
         assert_eq!(rec.features.len(), 1);
         assert_eq!(rec.features[0].display_label(), "abc");
+        assert_eq!(rec.sequence, b"ATGCATGCATGCATGCATGCAT");
     }
 
     #[test]
