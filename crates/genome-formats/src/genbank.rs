@@ -154,9 +154,37 @@ fn parse_features(lines: &[&str], record_id: &str) -> Result<(Vec<Feature>, usiz
                 break;
             }
 
-            let location = parse_location(loc_text, i + 1, line, Some(record_id.to_string()))?;
-            let mut qualifiers = Vec::new();
+            let location_line = i + 1;
+            let mut location_text = loc_text.to_string();
             i += 1;
+
+            // A location can span multiple indented lines. Consume those lines before
+            // parsing so constructs such as `join(...)` retain their closing delimiter.
+            while i < lines.len() {
+                let continuation = lines[i];
+                if !continuation.starts_with("     ") {
+                    break;
+                }
+                let payload = continuation.get(5..).unwrap_or("");
+                let continuation_key = payload.get(..16).unwrap_or(payload).trim();
+                let trimmed = continuation.trim();
+                if !continuation_key.is_empty() || trimmed.starts_with('/') {
+                    break;
+                }
+                if !location_text.is_empty() {
+                    location_text.push(' ');
+                }
+                location_text.push_str(trimmed);
+                i += 1;
+            }
+
+            let location = parse_location(
+                &location_text,
+                location_line,
+                line,
+                Some(record_id.to_string()),
+            )?;
+            let mut qualifiers = Vec::new();
 
             while i < lines.len() {
                 let qline = lines[i];
@@ -416,5 +444,13 @@ mod tests {
             }
             _ => panic!("expected interval"),
         }
+    }
+
+    #[test]
+    fn parses_wrapped_feature_location() {
+        let data = "LOCUS       TEST 100 bp DNA linear\nFEATURES             Location/Qualifiers\n     CDS             join(10..12,20..22,\n                     30..32)\n                     /gene=\"abc\"\nORIGIN\n        1 atgcatgcatgcatgcatgcat\n//\n";
+        let rec = parse_genbank(data).expect("wrapped location should parse");
+        assert_eq!(rec.features.len(), 1);
+        assert_eq!(rec.features[0].intervals().len(), 3);
     }
 }

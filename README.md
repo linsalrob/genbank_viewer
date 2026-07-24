@@ -43,8 +43,13 @@ cargo test
 ```bash
 cd web
 npm install
+npm run build
 npm run dev
 ```
+
+The web build invokes [`wasm-pack`](https://drager.github.io/wasm-pack/) to generate
+the browser WASM package. Install it once with `cargo install wasm-pack` before
+running the web commands.
 
 ## Notes
 

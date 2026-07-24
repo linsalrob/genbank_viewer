@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "npm run build:wasm && vite",
+    "build:wasm": "wasm-pack build ../crates/genome-wasm --target web --out-dir ../../web/src/lib/wasm-pkg --out-name genome_wasm",
+    "build": "npm run build:wasm && vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },

@@ -1,9 +1,14 @@
 import type { ParsedGenome } from './genomeTypes'
+import init, { parse_genbank_record } from './wasm-pkg/genome_wasm'
+
+let initialization: Promise<void> | undefined
+
+function initializeWasm(): Promise<void> {
+  initialization ??= init().then(() => undefined)
+  return initialization
+}
 
 export async function parseGenbankWithWasm(text: string): Promise<ParsedGenome> {
-  const wasmModulePath = '../../../crates/genome-wasm/pkg/genome_wasm.js'
-  const mod = (await import(/* @vite-ignore */ wasmModulePath)) as {
-    parse_genbank_record: (input: string) => ParsedGenome
-  }
-  return mod.parse_genbank_record(text)
+  await initializeWasm()
+  return parse_genbank_record(text) as ParsedGenome
 }
