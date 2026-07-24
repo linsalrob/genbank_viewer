@@ -1,0 +1,10 @@
+LOCUS       JOIN1                150 bp    DNA     linear   01-JAN-2000
+DEFINITION  Joined CDS example.
+ACCESSION   JOIN1
+FEATURES             Location/Qualifiers
+     CDS             join(10..30,50..90)
+                     /gene="joinedA"
+ORIGIN
+        1 atgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgc
+       81 atgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgc
+//
