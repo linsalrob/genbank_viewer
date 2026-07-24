@@ -1,0 +1,23 @@
+LOCUS       FIRST             30 bp    DNA     linear
+DEFINITION  Synthetic two-record fixture, first record.
+ACCESSION   SYNTH001
+FEATURES             Location/Qualifiers
+     CDS             1..15
+                     /locus_tag="forward_1"
+                     /product="synthetic forward protein"
+     CDS             complement(16..30)
+                     /locus_tag="reverse_1"
+                     /product="synthetic reverse protein"
+ORIGIN
+        1 atgaaacccgggtaatttcccgggtttcat
+//
+LOCUS       SECOND            24 bp    DNA     circular
+DEFINITION  Synthetic two-record fixture, second record.
+ACCESSION   SYNTH002
+FEATURES             Location/Qualifiers
+     CDS             join(<1..6,13..>24)
+                     /locus_tag="joined_1"
+                     /product="synthetic joined protein"
+ORIGIN
+        1 atgaaaccccccatgtttaaataa
+//
