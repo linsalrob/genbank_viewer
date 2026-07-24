@@ -1,3 +1,3 @@
 pub mod genbank;
 
-pub use genbank::{parse_genbank, ParseError};
+pub use genbank::{parse_first_genbank_record, parse_genbank, ParseError};

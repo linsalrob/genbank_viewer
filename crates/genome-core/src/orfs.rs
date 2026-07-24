@@ -1,23 +1,9 @@
-use crate::translation::{reverse_complement, translate_frame};
+//! Compatibility helpers. New callers should use coordinate-aware regional translation.
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct SixFrameTranslation {
-    pub forward: [String; 3],
-    pub reverse: [String; 3],
-}
+use crate::translation::{
+    translate_region_six_frames, GeneticCode, SixFrameTranslation, TranslationError,
+};
 
-pub fn six_frame_translation(sequence: &[u8]) -> SixFrameTranslation {
-    let rc = reverse_complement(sequence);
-    SixFrameTranslation {
-        forward: [
-            translate_frame(sequence, 0),
-            translate_frame(sequence, 1),
-            translate_frame(sequence, 2),
-        ],
-        reverse: [
-            translate_frame(&rc, 0),
-            translate_frame(&rc, 1),
-            translate_frame(&rc, 2),
-        ],
-    }
+pub fn six_frame_translation(sequence: &[u8]) -> Result<SixFrameTranslation, TranslationError> {
+    translate_region_six_frames(sequence, 0, sequence.len() as u64, GeneticCode::default())
 }

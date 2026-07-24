@@ -1,40 +1,102 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import type { ParsedGenome } from '../lib/genomeTypes'
-  import { renderGenome } from '../lib/renderer'
+  import { createEventDispatcher, onMount } from 'svelte'
+  import type { FeatureDto, GenomeRecordDto, TranslationDto } from '../lib/genomeTypes'
+  import { hitTest, renderGenome, type HitRegion } from '../lib/renderer'
   import { bindInteractions } from '../lib/interactions'
-  import type { Viewport } from '../lib/viewport'
+  import { translateRegion } from '../lib/wasm'
+  import type { GenomeViewport } from '../lib/viewport'
 
-  export let genome: ParsedGenome | null
+  export let genome: GenomeRecordDto
+  export let viewport: GenomeViewport
+  export let geneticCode = 11
+  export let showLabels = true
+  export let showStarts = true
+  export let selectedFeature: FeatureDto | null = null
+  const dispatch = createEventDispatcher<{ viewport: GenomeViewport; select: FeatureDto | null }>()
   let canvas: HTMLCanvasElement
-  let view: Viewport = { start: 0, end: 1, width: 1000 }
+  let translation: TranslationDto | undefined
+  let hits: HitRegion[] = []
+  let frame = 0
+  let tooltip: { x: number; y: number; feature: FeatureDto } | null = null
 
-  function redraw() {
-    if (!canvas || !genome) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    view.width = canvas.width
-    renderGenome(ctx, genome, view)
+  function queueDraw() {
+    cancelAnimationFrame(frame)
+    frame = requestAnimationFrame(draw)
+  }
+  function draw() {
+    const context = canvas?.getContext('2d')
+    if (!context) return
+    const ratio = window.devicePixelRatio || 1
+    const cssHeight = (viewport.end - viewport.start) / Math.max(1, viewport.width) <= 1.6 ? 260 : 112
+    canvas.width = Math.round(viewport.width * ratio)
+    canvas.height = Math.round(cssHeight * ratio)
+    canvas.style.height = `${cssHeight}px`
+    context.setTransform(ratio, 0, 0, ratio, 0, 0)
+    hits = renderGenome(context, genome, viewport, {
+      selectedFeatureId: selectedFeature?.id, showLabels, showStarts, translation,
+    }).hitRegions
+  }
+  async function updateTranslation() {
+    translation = await translateRegion(genome, viewport.start, viewport.end, geneticCode)
+    queueDraw()
+  }
+  function setViewport(next: GenomeViewport) {
+    viewport = next
+    dispatch('viewport', next)
+  }
+  function pointer(event: MouseEvent) {
+    const rect = canvas.getBoundingClientRect()
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top }
+  }
+  function click(event: MouseEvent) {
+    const point = pointer(event)
+    const id = hitTest(hits, point.x, point.y)
+    dispatch('select', genome.features.find((feature) => feature.id === id) ?? null)
+  }
+  function hover(event: MouseEvent) {
+    const point = pointer(event)
+    const id = hitTest(hits, point.x, point.y)
+    const feature = genome.features.find((item) => item.id === id)
+    tooltip = feature ? { ...point, feature } : null
   }
 
-  $: if (genome) {
-    view = { start: 0, end: Math.min(genome.sequence.length, 5000), width: canvas?.width ?? 1000 }
-    redraw()
-  }
+  $: if (canvas && genome && viewport && geneticCode) updateTranslation()
+  $: if (canvas) queueDraw()
 
   onMount(() => {
-    const cleanup = bindInteractions(
-      canvas,
-      () => view,
-      (v) => {
-        view = v
-        redraw()
-      },
-      () => genome?.sequence.length ?? 1,
-    )
-    redraw()
-    return cleanup
+    const observer = new ResizeObserver(([entry]) => {
+      viewport = { ...viewport, width: Math.max(1, entry.contentRect.width) }
+      dispatch('viewport', viewport)
+      queueDraw()
+    })
+    observer.observe(canvas.parentElement!)
+    const cleanup = bindInteractions(canvas, () => viewport, setViewport, () => genome.sequenceLength)
+    queueDraw()
+    return () => { observer.disconnect(); cleanup(); cancelAnimationFrame(frame) }
   })
 </script>
 
-<canvas bind:this={canvas} width="1200" height="420" style="border: 1px solid #ddd; width: 100%;"></canvas>
+<div class="canvas-shell">
+  <canvas
+    bind:this={canvas}
+    tabindex="0"
+    aria-label={`Genome viewer for ${genome.id}. ${genome.features.length} features. Use arrows to pan, plus and minus to zoom, Home for the whole genome.`}
+    on:click={click}
+    on:mousemove={hover}
+    on:mouseleave={() => tooltip = null}
+  ></canvas>
+  {#if tooltip}
+    <div class="tooltip" style={`left:${tooltip.x + 12}px;top:${tooltip.y + 12}px`}>
+      <strong>{tooltip.feature.label}</strong><br />
+      {tooltip.feature.product ?? tooltip.feature.type}<br />
+      {tooltip.feature.strand === 1 ? '→' : '←'} {tooltip.feature.start + 1}..{tooltip.feature.end}
+    </div>
+  {/if}
+</div>
+
+<style>
+  .canvas-shell { position:relative; min-width:0 }
+  canvas { display:block; width:100%; border:1px solid #aebbc7; background:#fff; cursor:crosshair; touch-action:none }
+  canvas:focus { outline:3px solid #ffbf47; outline-offset:2px }
+  .tooltip { position:absolute; z-index:3; pointer-events:none; padding:.45rem; border-radius:.3rem; color:#fff; background:#172433; font-size:.8rem; max-width:18rem }
+</style>

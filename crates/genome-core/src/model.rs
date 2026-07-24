@@ -25,6 +25,10 @@ impl Interval {
     pub fn len(&self) -> u64 {
         self.end.saturating_sub(self.start)
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.start >= self.end
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -39,6 +43,10 @@ pub enum Location {
         parts: Vec<Location>,
         strand: Strand,
     },
+    Unsupported {
+        original: String,
+        strand: Strand,
+    },
 }
 
 impl Location {
@@ -46,12 +54,15 @@ impl Location {
         match self {
             Location::Interval { interval, .. } => vec![interval.clone()],
             Location::Join { parts, .. } => parts.iter().flat_map(|p| p.intervals()).collect(),
+            Location::Unsupported { .. } => Vec::new(),
         }
     }
 
     pub fn strand(&self) -> Strand {
         match self {
-            Location::Interval { strand, .. } | Location::Join { strand, .. } => *strand,
+            Location::Interval { strand, .. }
+            | Location::Join { strand, .. }
+            | Location::Unsupported { strand, .. } => *strand,
         }
     }
 
@@ -144,7 +155,87 @@ pub struct GenomeRecord {
     pub sequence: Vec<u8>,
     pub topology: Topology,
     pub features: Vec<Feature>,
-    pub warnings: Vec<String>,
+    pub reported_sequence_length: Option<u64>,
+    pub warnings: Vec<ParseWarning>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ParseWarningCode {
+    SequenceLengthMismatch,
+    UnterminatedQuotedQualifier,
+    UnsupportedLocation,
+    EmptyRecord,
+    FeatureOutsideSequenceBounds,
+    UnsupportedMetadata,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ParseWarning {
+    pub record_id: Option<String>,
+    pub line: Option<usize>,
+    pub code: ParseWarningCode,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct CodingSummary {
+    pub sequence_length: u64,
+    pub cds_count: usize,
+    pub forward_cds_count: usize,
+    pub reverse_cds_count: usize,
+    pub covered_bases: u64,
+    pub coding_density: f64,
+}
+
+impl GenomeRecord {
+    pub fn coding_summary(&self) -> CodingSummary {
+        let cds = self
+            .features
+            .iter()
+            .filter(|feature| feature.feature_type.eq_ignore_ascii_case("CDS"))
+            .collect::<Vec<_>>();
+        let mut intervals = cds
+            .iter()
+            .flat_map(|feature| feature.intervals())
+            .filter_map(|interval| clamp_interval(&interval, self.sequence.len() as u64))
+            .collect::<Vec<_>>();
+        intervals.sort_by_key(|interval| (interval.start, interval.end));
+        let mut covered_bases = 0;
+        let mut current: Option<Interval> = None;
+        for interval in intervals {
+            match &mut current {
+                Some(active) if interval.start <= active.end => {
+                    active.end = active.end.max(interval.end)
+                }
+                Some(active) => {
+                    covered_bases += active.len();
+                    *active = interval;
+                }
+                None => current = Some(interval),
+            }
+        }
+        covered_bases += current.map_or(0, |interval| interval.len());
+        let sequence_length = self.sequence.len() as u64;
+        CodingSummary {
+            sequence_length,
+            cds_count: cds.len(),
+            forward_cds_count: cds
+                .iter()
+                .filter(|feature| feature.strand() == Strand::Forward)
+                .count(),
+            reverse_cds_count: cds
+                .iter()
+                .filter(|feature| feature.strand() == Strand::Reverse)
+                .count(),
+            covered_bases,
+            coding_density: if sequence_length == 0 {
+                0.0
+            } else {
+                covered_bases as f64 / sequence_length as f64
+            },
+        }
+    }
 }
 
 #[cfg(test)]
@@ -173,5 +264,80 @@ mod tests {
             ],
         };
         assert_eq!(feature.display_label(), "abc");
+    }
+
+    #[test]
+    fn coding_summary_uses_interval_union() {
+        let feature = |start, end| Feature {
+            feature_type: "CDS".into(),
+            location: Location::Interval {
+                interval: Interval { start, end },
+                strand: Strand::Forward,
+                partial_start: false,
+                partial_end: false,
+            },
+            qualifiers: vec![],
+        };
+        let record = GenomeRecord {
+            id: "test".into(),
+            accession: None,
+            description: None,
+            sequence: vec![b'A'; 10],
+            topology: Topology::Linear,
+            features: vec![feature(0, 6), feature(4, 8), feature(5, 7)],
+            reported_sequence_length: Some(10),
+            warnings: vec![],
+        };
+        let summary = record.coding_summary();
+        assert_eq!(summary.cds_count, 3);
+        assert_eq!(summary.covered_bases, 8);
+        assert_eq!(summary.coding_density, 0.8);
+    }
+
+    #[test]
+    fn coding_summary_counts_joined_parts_and_handles_empty_records() {
+        let record = GenomeRecord {
+            id: "joined".into(),
+            accession: None,
+            description: None,
+            sequence: vec![b'A'; 20],
+            topology: Topology::Linear,
+            features: vec![Feature {
+                feature_type: "CDS".into(),
+                location: Location::Join {
+                    parts: vec![
+                        Location::Interval {
+                            interval: Interval { start: 0, end: 5 },
+                            strand: Strand::Reverse,
+                            partial_start: false,
+                            partial_end: false,
+                        },
+                        Location::Interval {
+                            interval: Interval { start: 10, end: 15 },
+                            strand: Strand::Reverse,
+                            partial_start: false,
+                            partial_end: false,
+                        },
+                    ],
+                    strand: Strand::Reverse,
+                },
+                qualifiers: vec![],
+            }],
+            reported_sequence_length: Some(20),
+            warnings: vec![],
+        };
+        let summary = record.coding_summary();
+        assert_eq!(summary.covered_bases, 10);
+        assert_eq!(summary.reverse_cds_count, 1);
+
+        let empty = GenomeRecord {
+            sequence: vec![],
+            features: vec![],
+            reported_sequence_length: Some(0),
+            ..record
+        }
+        .coding_summary();
+        assert_eq!(empty.covered_bases, 0);
+        assert_eq!(empty.coding_density, 0.0);
     }
 }

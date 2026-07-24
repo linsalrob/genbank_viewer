@@ -5,6 +5,5 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-thiserror.workspace = true
 genome-core = { path = "../genome-core" }
 serde.workspace = true
