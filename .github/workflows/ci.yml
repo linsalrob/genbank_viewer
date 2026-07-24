@@ -41,6 +41,8 @@ jobs:
       - working-directory: web
         run: npm ci
       - working-directory: web
+        run: npm run build:wasm
+      - working-directory: web
         run: npm run check
       - working-directory: web
         run: npm run test

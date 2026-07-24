@@ -21,6 +21,9 @@
   $: genome = records[recordIndex]
 
   async function loadFile(content: string, file: File) {
+    records = []
+    recordIndex = 0
+    selected = null
     state = 'parsing'; error = null; filename = file.name; fileSize = file.size
     try {
       records = await parseGenbankWithWasm(content)

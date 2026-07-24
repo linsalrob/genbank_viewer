@@ -4,6 +4,17 @@ import init, { parse_genbank_json, translate_region_json } from './wasm-pkg/geno
 let initialization: Promise<void> | undefined
 const translationCache = new Map<string, TranslationDto>()
 const CACHE_LIMIT = 24
+const recordIdentities = new WeakMap<GenomeRecordDto, number>()
+let nextRecordIdentity = 1
+
+function recordIdentity(record: GenomeRecordDto): number {
+  let identity = recordIdentities.get(record)
+  if (identity === undefined) {
+    identity = nextRecordIdentity++
+    recordIdentities.set(record, identity)
+  }
+  return identity
+}
 
 function initializeWasm(): Promise<void> {
   initialization ??= init().then(() => undefined)
@@ -33,7 +44,7 @@ export async function translateRegion(
   await initializeWasm()
   const flankStart = Math.max(0, Math.floor(start) - 3)
   const flankEnd = Math.min(record.sequenceLength, Math.ceil(end) + 3)
-  const key = `${record.id}:${flankStart}:${flankEnd}:${geneticCode}`
+  const key = `${recordIdentity(record)}:${flankStart}:${flankEnd}:${geneticCode}`
   const cached = translationCache.get(key)
   if (cached) return cached
   const result = translate_region_json(new TextEncoder().encode(record.sequence), flankStart, flankEnd, geneticCode) as TranslationDto
