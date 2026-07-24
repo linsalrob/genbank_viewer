@@ -1,7 +1,7 @@
 use genome_core::coordinates::{
     one_based_inclusive_to_zero_based_half_open, one_based_single_to_zero_based_half_open,
 };
-use genome_core::{Feature, GenomeRecord, Interval, Location, Qualifier, Strand, Topology};
+use genome_core::{Feature, GenomeRecord, Location, Qualifier, Strand, Topology};
 use thiserror::Error;
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -144,6 +144,14 @@ fn parse_features(lines: &[&str], record_id: &str) -> Result<(Vec<Feature>, usiz
             if key.is_empty() {
                 i += 1;
                 continue;
+            }
+            if !key
+                .chars()
+                .next()
+                .map(|c| c.is_ascii_alphabetic())
+                .unwrap_or(false)
+            {
+                break;
             }
 
             let location = parse_location(loc_text, i + 1, line, Some(record_id.to_string()))?;
@@ -381,6 +389,7 @@ fn is_header_line(line: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use genome_core::Interval;
 
     #[test]
     fn parses_join_complement_and_qualifier() {

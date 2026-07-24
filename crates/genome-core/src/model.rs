@@ -100,16 +100,17 @@ impl Feature {
         self.location.feature_len()
     }
 
-    pub fn qualifier_values<'a>(&'a self, key: &str) -> impl Iterator<Item = &'a str> {
+    pub fn qualifier_values<'a>(&'a self, key: &str) -> Vec<&'a str> {
         self.qualifiers
             .iter()
-            .filter(move |q| q.key == key)
+            .filter(|q| q.key == key)
             .filter_map(|q| q.value.as_deref())
+            .collect()
     }
 
     pub fn display_label(&self) -> String {
         for key in ["locus_tag", "gene", "protein_id", "product"] {
-            if let Some(v) = self.qualifier_values(key).next() {
+            if let Some(v) = self.qualifier_values(key).into_iter().next() {
                 return v.to_string();
             }
         }
@@ -144,4 +145,33 @@ pub struct GenomeRecord {
     pub topology: Topology,
     pub features: Vec<Feature>,
     pub warnings: Vec<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn picks_display_label_priority() {
+        let feature = Feature {
+            feature_type: "CDS".to_string(),
+            location: Location::Interval {
+                interval: Interval { start: 0, end: 3 },
+                strand: Strand::Forward,
+                partial_start: false,
+                partial_end: false,
+            },
+            qualifiers: vec![
+                Qualifier {
+                    key: "product".to_string(),
+                    value: Some("protein".to_string()),
+                },
+                Qualifier {
+                    key: "gene".to_string(),
+                    value: Some("abc".to_string()),
+                },
+            ],
+        };
+        assert_eq!(feature.display_label(), "abc");
+    }
 }
