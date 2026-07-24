@@ -1,0 +1,28 @@
+site_name: Webtemis
+site_description: Local-first browser genome viewer
+theme:
+  name: material
+nav:
+  - Home: index.md
+  - Use Webtemis: how-to-use-webtemis.md
+  - Installation: installation.md
+  - Development: development.md
+  - Architecture: architecture.md
+  - Coordinates: coordinate-system.md
+  - GenBank support: genbank-support.md
+  - Translation: translation.md
+  - Testing: testing.md
+  - Troubleshooting: troubleshooting.md
+  - Privacy and security: privacy-and-security.md
+  - Accessibility: accessibility.md
+  - Contributing: contributing.md
+  - Roadmap: roadmap.md
+markdown_extensions:
+  - admonition
+  - tables
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+strict: true
