@@ -20,7 +20,7 @@
   }
 </script>
 
-<section role="group" aria-label="GenBank file loading" class:dragging class="loader" on:dragover|preventDefault={() => dragging = true} on:dragleave={() => dragging = false} on:drop={drop}>
+<section role="group" aria-label="GenBank file loading" class:dragging class="loader" on:dragover={(e) => { e.preventDefault(); dragging = true }} on:dragleave={() => dragging = false} on:drop={drop}>
   <label for="genbank-file">Open a local GenBank file</label>
   <input id="genbank-file" data-testid="file-input" type="file" accept=".gb,.gbk,.genbank,.gbff" on:change={pick} />
   <span>or drag and drop it here — files never leave this browser</span>
