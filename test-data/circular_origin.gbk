@@ -1,0 +1,10 @@
+LOCUS       CIRC1                120 bp    DNA     circular 01-JAN-2000
+DEFINITION  Circular origin crossing placeholder.
+ACCESSION   CIRC1
+FEATURES             Location/Qualifiers
+     CDS             complement(join(100..120,1..30))
+                     /product="origin_crossing"
+ORIGIN
+        1 atgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgcatgc
+       81 atgcatgcatgcatgcatgcatgcatgcatgcatgcatg
+//
