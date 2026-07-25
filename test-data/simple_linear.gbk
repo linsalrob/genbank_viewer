@@ -2,8 +2,12 @@ LOCUS       SIMPLE1              120 bp    DNA     linear   01-JAN-2000
 DEFINITION  Simple linear genome.
 ACCESSION   SIMPLE1
 FEATURES             Location/Qualifiers
+     source          1..120
+                     /organism="Synthetic construct"
      CDS             10..60
                      /locus_tag="SL_0001"
+                     /product="synthetic table 4 protein"
+                     /transl_table=4
 ORIGIN
         1 atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc
        61 atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc

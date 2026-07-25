@@ -68,6 +68,12 @@ export interface TranslationDto {
   codons: TranslatedCodonDto[]
 }
 
+export interface GeneticCodeMetadataDto {
+  id: number
+  short_name: string
+  description: string
+}
+
 export interface BrowserError {
   code: string
   message: string

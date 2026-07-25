@@ -1,4 +1,4 @@
-use genome_core::translation::{translate_region_six_frames, GeneticCode};
+use genome_core::translation::{supported_genetic_codes, translate_region_six_frames, GeneticCode};
 use genome_core::{Feature, GenomeRecord, Location, Qualifier, Strand, Topology};
 use genome_formats::parse_genbank;
 use serde::Serialize;
@@ -88,6 +88,11 @@ pub fn translate_region_json(
     let result = translate_region_six_frames(sequence, start.into(), end.into(), code)
         .map_err(translation_error)?;
     serialize(&result)
+}
+
+#[wasm_bindgen]
+pub fn supported_genetic_codes_json() -> Result<JsValue, JsValue> {
+    serialize(&supported_genetic_codes())
 }
 
 #[wasm_bindgen]

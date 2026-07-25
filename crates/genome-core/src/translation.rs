@@ -1,15 +1,240 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[repr(u8)]
-pub enum GeneticCode {
-    Standard = 1,
-    Bacterial = 11,
+/// Display metadata for an NCBI translation table.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct GeneticCodeMetadata {
+    pub id: u8,
+    pub short_name: &'static str,
+    pub description: &'static str,
+}
+
+#[derive(Debug)]
+struct GeneticCodeDefinition {
+    metadata: GeneticCodeMetadata,
+    /// Amino acids in NCBI's canonical T,C,A,G codon order.
+    amino_acids: &'static [u8; 64],
+    /// `M` marks an accepted initiator in the same codon order.
+    starts: &'static [u8; 64],
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct GeneticCode(&'static GeneticCodeDefinition);
+
+// Data transcribed from NCBI gc.prt version 4.6 / Genetic Codes page,
+// retrieved 2026-07-25. Codon order is documented in docs/translation.md.
+macro_rules! code {
+    ($id:literal, $short:literal, $description:literal, $aa:literal, $starts:literal) => {
+        GeneticCodeDefinition {
+            metadata: GeneticCodeMetadata {
+                id: $id,
+                short_name: $short,
+                description: $description,
+            },
+            amino_acids: $aa,
+            starts: $starts,
+        }
+    };
+}
+
+static GENETIC_CODES: &[GeneticCodeDefinition] = &[
+    code!(
+        1,
+        "Standard",
+        "The Standard Code",
+        b"FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"---M------**--*----M---------------M----------------------------"
+    ),
+    code!(
+        2,
+        "Vertebrate Mitochondrial",
+        "The Vertebrate Mitochondrial Code",
+        b"FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSS**VVVVAAAADDEEGGGG",
+        b"----------**--------------------MMMM----------**---M------------"
+    ),
+    code!(
+        3,
+        "Yeast Mitochondrial",
+        "The Yeast Mitochondrial Code",
+        b"FFLLSSSSYY**CCWWTTTTPPPPHHQQRRRRIIMMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"----------**----------------------MM---------------M------------"
+    ),
+    code!(
+        4,
+        "Mold/Protozoan Mitochondrial and Mycoplasma",
+        "Mold, Protozoan and Coelenterate Mitochondrial; Mycoplasma/Spiroplasma",
+        b"FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"--MM------**-------M------------MMMM---------------M------------"
+    ),
+    code!(
+        5,
+        "Invertebrate Mitochondrial",
+        "The Invertebrate Mitochondrial Code",
+        b"FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSSSSVVVVAAAADDEEGGGG",
+        b"---M------**--------------------MMMM---------------M------------"
+    ),
+    code!(
+        6,
+        "Ciliate Nuclear",
+        "Ciliate, Dasycladacean and Hexamita Nuclear",
+        b"FFLLSSSSYYQQCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"--------------*--------------------M----------------------------"
+    ),
+    code!(
+        9,
+        "Echinoderm/Flatworm Mitochondrial",
+        "Echinoderm and Flatworm Mitochondrial",
+        b"FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNNKSSSSVVVVAAAADDEEGGGG",
+        b"----------**-----------------------M---------------M------------"
+    ),
+    code!(
+        10,
+        "Euplotid Nuclear",
+        "The Euplotid Nuclear Code",
+        b"FFLLSSSSYY**CCCWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"----------**-----------------------M----------------------------"
+    ),
+    code!(
+        11,
+        "Bacterial, Archaeal and Plant Plastid",
+        "The Bacterial, Archaeal and Plant Plastid Code",
+        b"FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"---M------**--*----M------------MMMM---------------M------------"
+    ),
+    code!(
+        12,
+        "Alternative Yeast Nuclear",
+        "The Alternative Yeast Nuclear Code",
+        b"FFLLSSSSYY**CC*WLLLSPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"----------**--*----M---------------M----------------------------"
+    ),
+    code!(
+        13,
+        "Ascidian Mitochondrial",
+        "The Ascidian Mitochondrial Code",
+        b"FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSSGGVVVVAAAADDEEGGGG",
+        b"---M------**----------------------MM---------------M------------"
+    ),
+    code!(
+        14,
+        "Alternative Flatworm Mitochondrial",
+        "The Alternative Flatworm Mitochondrial Code",
+        b"FFLLSSSSYYY*CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNNKSSSSVVVVAAAADDEEGGGG",
+        b"-----------*-----------------------M----------------------------"
+    ),
+    code!(
+        15,
+        "Blepharisma Nuclear",
+        "The Blepharisma Nuclear Code",
+        b"FFLLSSSSYY*QCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"----------*---*--------------------M----------------------------"
+    ),
+    code!(
+        16,
+        "Chlorophycean Mitochondrial",
+        "The Chlorophycean Mitochondrial Code",
+        b"FFLLSSSSYY*LCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"----------*---*--------------------M----------------------------"
+    ),
+    code!(
+        21,
+        "Trematode Mitochondrial",
+        "The Trematode Mitochondrial Code",
+        b"FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNNKSSSSVVVVAAAADDEEGGGG",
+        b"----------**-----------------------M---------------M------------"
+    ),
+    code!(
+        22,
+        "Scenedesmus Mitochondrial",
+        "Scenedesmus obliquus Mitochondrial",
+        b"FFLLSS*SYY*LCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"------*---*---*--------------------M----------------------------"
+    ),
+    code!(
+        23,
+        "Thraustochytrium Mitochondrial",
+        "The Thraustochytrium Mitochondrial Code",
+        b"FF*LSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"--*-------**--*-----------------M--M---------------M------------"
+    ),
+    code!(
+        24,
+        "Rhabdopleuridae Mitochondrial",
+        "The Rhabdopleuridae Mitochondrial Code",
+        b"FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSSKVVVVAAAADDEEGGGG",
+        b"---M------**-------M---------------M---------------M------------"
+    ),
+    code!(
+        25,
+        "SR1 and Gracilibacteria",
+        "Candidate Division SR1 and Gracilibacteria",
+        b"FFLLSSSSYY**CCGWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"---M------**-----------------------M---------------M------------"
+    ),
+    code!(
+        26,
+        "Pachysolen Nuclear",
+        "Pachysolen tannophilus Nuclear",
+        b"FFLLSSSSYY**CC*WLLLAPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"----------**--*----M---------------M----------------------------"
+    ),
+    code!(
+        27,
+        "Karyorelict Nuclear",
+        "The Karyorelict Nuclear Code",
+        b"FFLLSSSSYYQQCCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"--------------*--------------------M----------------------------"
+    ),
+    code!(
+        28,
+        "Condylostoma Nuclear",
+        "The Condylostoma Nuclear Code",
+        b"FFLLSSSSYYQQCCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"----------**--*--------------------M----------------------------"
+    ),
+    code!(
+        29,
+        "Mesodinium Nuclear",
+        "The Mesodinium Nuclear Code",
+        b"FFLLSSSSYYYYCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"--------------*--------------------M----------------------------"
+    ),
+    code!(
+        30,
+        "Peritrich Nuclear",
+        "The Peritrich Nuclear Code",
+        b"FFLLSSSSYYEECC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"--------------*--------------------M----------------------------"
+    ),
+    code!(
+        31,
+        "Blastocrithidia Nuclear",
+        "The Blastocrithidia Nuclear Code",
+        b"FFLLSSSSYYEECCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"----------**-----------------------M----------------------------"
+    ),
+    code!(
+        32,
+        "Balanophoraceae Plastid",
+        "The Balanophoraceae Plastid Code",
+        b"FFLLSSSSYY*WCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
+        b"---M------*---*----M------------MMMM---------------M------------"
+    ),
+    code!(
+        33,
+        "Cephalodiscidae Mitochondrial",
+        "The Cephalodiscidae Mitochondrial UAA-Tyr Code",
+        b"FFLLSSSSYYY*CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSSKVVVVAAAADDEEGGGG",
+        b"---M-------*-------M---------------M---------------M------------"
+    ),
+];
+
+pub fn supported_genetic_codes() -> Vec<GeneticCodeMetadata> {
+    GENETIC_CODES.iter().map(|code| code.metadata).collect()
 }
 
 impl Default for GeneticCode {
     fn default() -> Self {
-        Self::Bacterial
+        Self::try_from(11).expect("NCBI table 11 is registered")
     }
 }
 
@@ -30,10 +255,7 @@ impl std::fmt::Display for TranslationError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnsupportedGeneticCode { value } => {
-                write!(
-                    formatter,
-                    "unsupported NCBI genetic code {value}; supported codes are 1 and 11"
-                )
+                write!(formatter, "unsupported NCBI genetic code {value}")
             }
             Self::InvalidRegion {
                 start,
@@ -55,11 +277,21 @@ impl TryFrom<u8> for GeneticCode {
     type Error = TranslationError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            1 => Ok(Self::Standard),
-            11 => Ok(Self::Bacterial),
-            value => Err(TranslationError::UnsupportedGeneticCode { value }),
-        }
+        GENETIC_CODES
+            .iter()
+            .find(|code| code.metadata.id == value)
+            .map(Self)
+            .ok_or(TranslationError::UnsupportedGeneticCode { value })
+    }
+}
+
+impl GeneticCode {
+    pub fn id(self) -> u8 {
+        self.0.metadata.id
+    }
+
+    pub fn metadata(self) -> GeneticCodeMetadata {
+        self.0.metadata
     }
 }
 
@@ -113,45 +345,38 @@ fn normalized_codon(codon: &[u8]) -> Option<[u8; 3]> {
         .then_some(result)
 }
 
-fn amino_acid(codon: [u8; 3]) -> char {
-    match &codon {
-        b"TTT" | b"TTC" => 'F',
-        b"TTA" | b"TTG" | b"CTT" | b"CTC" | b"CTA" | b"CTG" => 'L',
-        b"ATT" | b"ATC" | b"ATA" => 'I',
-        b"ATG" => 'M',
-        b"GTT" | b"GTC" | b"GTA" | b"GTG" => 'V',
-        b"TCT" | b"TCC" | b"TCA" | b"TCG" | b"AGT" | b"AGC" => 'S',
-        b"CCT" | b"CCC" | b"CCA" | b"CCG" => 'P',
-        b"ACT" | b"ACC" | b"ACA" | b"ACG" => 'T',
-        b"GCT" | b"GCC" | b"GCA" | b"GCG" => 'A',
-        b"TAT" | b"TAC" => 'Y',
-        b"TAA" | b"TAG" | b"TGA" => '*',
-        b"CAT" | b"CAC" => 'H',
-        b"CAA" | b"CAG" => 'Q',
-        b"AAT" | b"AAC" => 'N',
-        b"AAA" | b"AAG" => 'K',
-        b"GAT" | b"GAC" => 'D',
-        b"GAA" | b"GAG" => 'E',
-        b"TGT" | b"TGC" => 'C',
-        b"TGG" => 'W',
-        b"CGT" | b"CGC" | b"CGA" | b"CGG" | b"AGA" | b"AGG" => 'R',
-        b"GGT" | b"GGC" | b"GGA" | b"GGG" => 'G',
-        _ => 'X',
+fn codon_index(codon: [u8; 3]) -> usize {
+    fn base_index(base: u8) -> usize {
+        match base {
+            b'T' => 0,
+            b'C' => 1,
+            b'A' => 2,
+            b'G' => 3,
+            _ => unreachable!("codon was normalized"),
+        }
     }
+    base_index(codon[0]) * 16 + base_index(codon[1]) * 4 + base_index(codon[2])
+}
+
+fn amino_acid(codon: [u8; 3], code: GeneticCode) -> char {
+    code.0.amino_acids[codon_index(codon)] as char
 }
 
 fn is_start(codon: [u8; 3], code: GeneticCode) -> bool {
-    match code {
-        GeneticCode::Standard => codon == *b"ATG",
-        GeneticCode::Bacterial => matches!(
-            &codon,
-            b"ATG" | b"GTG" | b"TTG" | b"CTG" | b"ATT" | b"ATC" | b"ATA"
-        ),
-    }
+    code.0.starts[codon_index(codon)] == b'M'
 }
 
 pub fn codon_to_aa(codon: &[u8]) -> char {
-    normalized_codon(codon).map(amino_acid).unwrap_or('X')
+    codon_to_aa_with_code(
+        codon,
+        GeneticCode::try_from(1).expect("standard code is registered"),
+    )
+}
+
+pub fn codon_to_aa_with_code(codon: &[u8], code: GeneticCode) -> char {
+    normalized_codon(codon)
+        .map(|value| amino_acid(value, code))
+        .unwrap_or('X')
 }
 
 pub fn translate_region_six_frames(
@@ -252,7 +477,7 @@ fn push_codon(
     let raw = &source[start as usize..end as usize];
     let codon = [normalize(raw[0]), normalize(raw[1]), normalize(raw[2])];
     let valid = normalized_codon(&codon);
-    let amino_acid = valid.map(amino_acid).unwrap_or('X');
+    let amino_acid = valid.map(|codon| amino_acid(codon, code)).unwrap_or('X');
     output.push(TranslatedCodon {
         genomic_start: start,
         genomic_end: end,
@@ -285,8 +510,10 @@ mod tests {
 
     #[test]
     fn start_sets_differ_but_amino_acid_does_not() {
-        let standard = translate_region_six_frames(b"GTG", 0, 3, GeneticCode::Standard).unwrap();
-        let bacterial = translate_region_six_frames(b"GTG", 0, 3, GeneticCode::Bacterial).unwrap();
+        let standard =
+            translate_region_six_frames(b"GTG", 0, 3, GeneticCode::try_from(1).unwrap()).unwrap();
+        let bacterial =
+            translate_region_six_frames(b"GTG", 0, 3, GeneticCode::try_from(11).unwrap()).unwrap();
         let standard_plus_one = standard.codons.iter().find(|c| c.frame == 1).unwrap();
         let bacterial_plus_one = bacterial.codons.iter().find(|c| c.frame == 1).unwrap();
         assert!(!standard_plus_one.is_start);
@@ -296,8 +523,8 @@ mod tests {
 
     #[test]
     fn preserves_global_alignment_and_includes_intersections() {
-        let a = translate_region_six_frames(b"ATGAAATAA", 0, 5, GeneticCode::Bacterial).unwrap();
-        let b = translate_region_six_frames(b"ATGAAATAA", 1, 6, GeneticCode::Bacterial).unwrap();
+        let a = translate_region_six_frames(b"ATGAAATAA", 0, 5, GeneticCode::default()).unwrap();
+        let b = translate_region_six_frames(b"ATGAAATAA", 1, 6, GeneticCode::default()).unwrap();
         let coords = |r: &SixFrameTranslation| {
             r.codons
                 .iter()
@@ -312,7 +539,7 @@ mod tests {
     #[test]
     fn maps_reverse_codons_exactly_and_reports_translated_orientation() {
         let result =
-            translate_region_six_frames(b"AAACCCCAT", 0, 9, GeneticCode::Bacterial).unwrap();
+            translate_region_six_frames(b"AAACCCCAT", 0, 9, GeneticCode::default()).unwrap();
         let minus_one = result
             .codons
             .iter()
@@ -339,15 +566,16 @@ mod tests {
     #[test]
     fn handles_boundaries_short_sequences_and_stops() {
         assert!(
-            translate_region_six_frames(b"AT", 0, 2, GeneticCode::Bacterial)
+            translate_region_six_frames(b"AT", 0, 2, GeneticCode::default())
                 .unwrap()
                 .codons
                 .is_empty()
         );
-        let result = translate_region_six_frames(b"TAA", 0, 3, GeneticCode::Standard).unwrap();
+        let result =
+            translate_region_six_frames(b"TAA", 0, 3, GeneticCode::try_from(1).unwrap()).unwrap();
         assert!(result.codons.iter().any(|c| c.frame == 1 && c.is_stop));
         assert!(
-            translate_region_six_frames(b"ATG", 3, 3, GeneticCode::Standard)
+            translate_region_six_frames(b"ATG", 3, 3, GeneticCode::try_from(1).unwrap())
                 .unwrap()
                 .codons
                 .is_empty()
@@ -357,7 +585,7 @@ mod tests {
     #[test]
     fn emits_all_six_global_frames() {
         let result =
-            translate_region_six_frames(b"ATGCCCTAA", 0, 9, GeneticCode::Bacterial).unwrap();
+            translate_region_six_frames(b"ATGCCCTAA", 0, 9, GeneticCode::default()).unwrap();
         let mut frames = result
             .codons
             .iter()
@@ -370,5 +598,57 @@ mod tests {
             assert_eq!(codon.genomic_end - codon.genomic_start, 3);
             assert!(codon.genomic_start < codon.genomic_end);
         }
+    }
+
+    #[test]
+    fn every_registered_code_translates_all_unambiguous_codons() {
+        const BASES: &[u8] = b"TCAG";
+        let metadata = supported_genetic_codes();
+        assert_eq!(
+            metadata.iter().map(|code| code.id).collect::<Vec<_>>(),
+            vec![
+                1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28,
+                29, 30, 31, 32, 33
+            ]
+        );
+        for definition in GENETIC_CODES {
+            let code = GeneticCode::try_from(definition.metadata.id).unwrap();
+            for &first in BASES {
+                for &second in BASES {
+                    for &third in BASES {
+                        let codon = [first, second, third];
+                        let index = codon_index(codon);
+                        let amino_acid = codon_to_aa_with_code(&codon, code);
+                        assert!(
+                            amino_acid == '*' || "ACDEFGHIKLMNPQRSTVWY".contains(amino_acid),
+                            "table {} returned {amino_acid} for {:?}",
+                            code.id(),
+                            codon
+                        );
+                        assert_eq!(amino_acid == '*', definition.amino_acids[index] == b'*');
+                        assert_eq!(is_start(codon, code), definition.starts[index] == b'M');
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn known_table_differences_match_ncbi() {
+        let standard = GeneticCode::try_from(1).unwrap();
+        let vertebrate = GeneticCode::try_from(2).unwrap();
+        let mold = GeneticCode::try_from(4).unwrap();
+        let bacterial = GeneticCode::try_from(11).unwrap();
+        let ciliate = GeneticCode::try_from(6).unwrap();
+
+        assert_eq!(codon_to_aa_with_code(b"TGA", standard), '*');
+        assert_eq!(codon_to_aa_with_code(b"TGA", mold), 'W');
+        assert_eq!(codon_to_aa_with_code(b"AGA", vertebrate), '*');
+        assert_eq!(codon_to_aa_with_code(b"AGG", vertebrate), '*');
+        assert_eq!(codon_to_aa_with_code(b"ATA", standard), 'I');
+        assert_eq!(codon_to_aa_with_code(b"ATA", vertebrate), 'M');
+        assert!(is_start(*b"CTG", standard));
+        assert!(is_start(*b"GTG", bacterial));
+        assert_eq!(codon_to_aa_with_code(b"TAA", ciliate), 'Q');
     }
 }
