@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte'
   import type { FeatureDto, GenomeRecordDto, TranslationDto } from '../lib/genomeTypes'
-  import { hitTest, renderGenome, type HitRegion } from '../lib/renderer'
+  import { hitTest, renderGenome, renderHeight, type HitRegion } from '../lib/renderer'
   import { bindInteractions } from '../lib/interactions'
   import { translateRegion } from '../lib/wasm'
   import type { GenomeViewport } from '../lib/viewport'
@@ -11,6 +11,7 @@
   export let geneticCode = 11
   export let showLabels = true
   export let showStarts = true
+  export let showSourceFeatures = false
   export let selectedFeature: FeatureDto | null = null
   const dispatch = createEventDispatcher<{ viewport: GenomeViewport; select: FeatureDto | null }>()
   let canvas: HTMLCanvasElement
@@ -27,13 +28,13 @@
     const context = canvas?.getContext('2d')
     if (!context) return
     const ratio = window.devicePixelRatio || 1
-    const cssHeight = (viewport.end - viewport.start) / Math.max(1, viewport.width) <= 1.6 ? 260 : 112
+    const cssHeight = renderHeight(viewport)
     canvas.width = Math.round(viewport.width * ratio)
     canvas.height = Math.round(cssHeight * ratio)
     canvas.style.height = `${cssHeight}px`
     context.setTransform(ratio, 0, 0, ratio, 0, 0)
     hits = renderGenome(context, genome, viewport, {
-      selectedFeatureId: selectedFeature?.id, showLabels, showStarts, translation,
+      selectedFeatureId: selectedFeature?.id, showLabels, showStarts, showSourceFeatures, translation,
     }).hitRegions
   }
   async function updateTranslation() {
@@ -61,7 +62,7 @@
   }
 
   $: if (canvas && genome && viewport && geneticCode) updateTranslation()
-  $: if (canvas) queueDraw()
+  $: if (canvas && showSourceFeatures !== undefined) queueDraw()
 
   onMount(() => {
     const observer = new ResizeObserver(([entry]) => {
@@ -80,7 +81,7 @@
   <canvas
     bind:this={canvas}
     tabindex="0"
-    aria-label={`Genome viewer for ${genome.id}. ${genome.features.length} features. Use arrows to pan, plus and minus to zoom, Home for the whole genome.`}
+    aria-label={`Genome viewer for ${genome.id}. ${genome.features.length} parsed features. Source features are ${showSourceFeatures ? 'visible' : 'hidden'}. Genetic code ${geneticCode}. Use arrows to pan, plus and minus to zoom, Home for the whole genome.`}
     on:click={click}
     on:mousemove={hover}
     on:mouseleave={() => tooltip = null}

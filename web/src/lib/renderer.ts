@@ -7,6 +7,7 @@ export interface RenderState {
   selectedFeatureId?: number
   showLabels: boolean
   showStarts: boolean
+  showSourceFeatures: boolean
   translation?: TranslationDto
 }
 
@@ -17,7 +18,21 @@ export const RENDER_CONFIG = {
   rowHeight: 18,
   baseThreshold: 1.6,
   labelMinimumPixels: 50,
+  compactHeight: 140,
+  sequenceHeight: 312,
 } as const
+
+export function renderHeight(view: GenomeViewport): number {
+  return bpPerPixel(view) <= RENDER_CONFIG.baseThreshold
+    ? RENDER_CONFIG.sequenceHeight
+    : RENDER_CONFIG.compactHeight
+}
+
+export function featuresForRendering(genome: GenomeRecordDto, state: RenderState): FeatureDto[] {
+  return genome.features.filter(
+    (feature) => state.showSourceFeatures || feature.type.toLowerCase() !== 'source',
+  )
+}
 
 export function rulerStep(basesPerPixel: number, minimumPixels = 70): number {
   const target = basesPerPixel * minimumPixels
@@ -47,14 +62,19 @@ export function renderGenome(
   state: RenderState,
 ): RenderResult {
   const highZoom = bpPerPixel(viewport) <= RENDER_CONFIG.baseThreshold
-  const height = highZoom ? 260 : 112
+  const height = renderHeight(viewport)
   context.clearRect(0, 0, viewport.width, height)
   context.fillStyle = '#fff'
   context.fillRect(0, 0, viewport.width, height)
   drawRuler(context, viewport)
+  const visible = featuresForRendering(genome, state)
+  const sources = visible.filter((feature) => feature.type.toLowerCase() === 'source')
+  const annotations = visible.filter((feature) => feature.type.toLowerCase() !== 'source')
   const hits = [
-    ...drawFeatures(context, genome, viewport, state, RENDER_CONFIG.rulerHeight, 1),
-    ...drawFeatures(context, genome, viewport, state, highZoom ? 226 : 68, -1),
+    ...drawFeatures(context, sources, viewport, state, 36, 1, true),
+    ...drawFeatures(context, sources, viewport, state, 36, -1, true),
+    ...drawFeatures(context, annotations, viewport, state, 44, 1, false),
+    ...drawFeatures(context, annotations, viewport, state, highZoom ? 280 : 96, -1, false),
   ]
   if (highZoom) drawSequenceAndFrames(context, genome, viewport, state)
   return { hitRegions: hits, height }
@@ -84,14 +104,18 @@ function drawRuler(context: CanvasRenderingContext2D, viewport: GenomeViewport) 
 
 function drawFeatures(
   context: CanvasRenderingContext2D,
-  genome: GenomeRecordDto,
+  features: FeatureDto[],
   viewport: GenomeViewport,
   state: RenderState,
   y: number,
   strand: 1 | -1,
+  sourceLayer: boolean,
 ): HitRegion[] {
   const hits: HitRegion[] = []
-  for (const feature of genome.features.filter((item) => item.strand === strand && item.end > viewport.start && item.start < viewport.end)) {
+  for (const feature of features.filter((item) =>
+    (item.strand === strand || (sourceLayer && item.strand === 0 && strand === 1))
+      && item.end > viewport.start && item.start < viewport.end
+  )) {
     const pieces = featureGeometry(feature, viewport, y)
     if (pieces.length > 1) {
       context.strokeStyle = '#40566b'
@@ -102,8 +126,14 @@ function drawFeatures(
     }
     for (const [index, piece] of pieces.entries()) {
       const selected = feature.id === state.selectedFeatureId
-      context.fillStyle = selected ? '#ffb000' : strand === 1 ? '#147d64' : '#8f4261'
+      context.fillStyle = selected ? '#ffb000' : sourceLayer ? '#c8d0d8' : strand === 1 ? '#147d64' : '#8f4261'
       drawArrow(context, piece.x, piece.y, piece.width, piece.height, strand, feature.parts[index])
+      if (sourceLayer && !selected) {
+        context.strokeStyle = '#657586'
+        context.setLineDash([5, 4])
+        context.stroke()
+        context.setLineDash([])
+      }
       if (selected) {
         context.strokeStyle = '#111'
         context.lineWidth = 2
@@ -113,8 +143,8 @@ function drawFeatures(
       hits.push({ featureId: feature.id, ...piece })
     }
     const width = pieces.reduce((sum, piece) => sum + piece.width, 0)
-    if (state.showLabels && width >= RENDER_CONFIG.labelMinimumPixels) {
-      context.fillStyle = '#fff'
+    if ((state.showLabels || sourceLayer) && width >= RENDER_CONFIG.labelMinimumPixels) {
+      context.fillStyle = sourceLayer ? '#263849' : '#fff'
       context.font = '11px system-ui'
       context.textAlign = 'left'
       context.fillText(feature.label, pieces[0].x + 5, y + 15, width - 9)
@@ -165,7 +195,7 @@ function drawSequenceAndFrames(
 ) {
   context.font = '12px ui-monospace, monospace'
   context.textAlign = 'center'
-  const frameY = new Map([[1, 70], [2, 88], [3, 106], [-1, 178], [-2, 196], [-3, 214]])
+  const frameY = new Map([[1, 90], [2, 110], [3, 130], [-1, 216], [-2, 236], [-3, 256]])
   context.fillStyle = '#506276'
   for (const [frame, y] of frameY) context.fillText(frame > 0 ? `+${frame}` : String(frame), 17, y)
   context.fillStyle = '#172433'
@@ -173,8 +203,8 @@ function drawSequenceAndFrames(
   const last = Math.min(genome.sequenceLength, Math.ceil(viewport.end))
   for (let position = first; position < last; position++) {
     const x = genomeToScreen(position + 0.5, viewport)
-    context.fillText(genome.sequence[position], x, 132)
-    context.fillText(genome.reverseComplement[genome.sequenceLength - position - 1], x, 160)
+    context.fillText(genome.sequence[position], x, 158)
+    context.fillText(genome.reverseComplement[genome.sequenceLength - position - 1], x, 184)
   }
   for (const codon of state.translation?.codons ?? []) {
     const y = frameY.get(codon.frame)

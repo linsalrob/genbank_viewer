@@ -1,9 +1,10 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import FileLoader from './components/FileLoader.svelte'
   import GenomeCanvas from './components/GenomeCanvas.svelte'
   import FeatureInspector from './components/FeatureInspector.svelte'
-  import type { BrowserError, FeatureDto, GenomeRecordDto } from './lib/genomeTypes'
-  import { parseGenbankWithWasm } from './lib/wasm'
+  import type { BrowserError, FeatureDto, GeneticCodeMetadataDto, GenomeRecordDto } from './lib/genomeTypes'
+  import { parseGenbankWithWasm, supportedGeneticCodes } from './lib/wasm'
   import { bpPerPixel, parseCoordinateInput, zoom, type GenomeViewport } from './lib/viewport'
 
   let records: GenomeRecordDto[] = []
@@ -18,7 +19,27 @@
   let geneticCode = 11
   let showLabels = true
   let showStarts = true
+  let showSourceFeatures = false
+  let geneticCodes: GeneticCodeMetadataDto[] = []
   $: genome = records[recordIndex]
+  $: recordCodeIds = new Set<number>((genome?.features ?? []).flatMap((feature) =>
+    feature.qualifiers
+      .filter((qualifier) => qualifier.key.toLowerCase() === 'transl_table' && /^\d+$/.test(qualifier.value ?? ''))
+      .map((qualifier) => Number(qualifier.value)),
+  ))
+
+  onMount(async () => {
+    geneticCodes = await supportedGeneticCodes()
+  })
+
+  function showFileError(caught: unknown) {
+    const candidate = caught as Partial<BrowserError>
+    error = {
+      code: candidate.code ?? 'unreadable_file',
+      message: candidate.message ?? String(caught),
+    }
+    state = 'error'
+  }
 
   async function loadFile(content: string, file: File) {
     records = []
@@ -51,12 +72,16 @@
   function copyDetails() {
     if (error) navigator.clipboard.writeText(JSON.stringify(error, null, 2))
   }
+  function toggleSource() {
+    showSourceFeatures = !showSourceFeatures
+    if (!showSourceFeatures && selected?.type.toLowerCase() === 'source') selected = null
+  }
 </script>
 
 <svelte:head><title>genbank_viewer — local-first genome viewer</title></svelte:head>
 <header><div><h1>genbank_viewer</h1><p>Local-first GenBank genome viewer</p></div><span class="privacy">Sequence data stays in your browser</span></header>
 <main>
-  <FileLoader onLoad={loadFile} />
+  <FileLoader onLoad={loadFile} onError={showFileError} />
   {#if state === 'parsing'}<p role="status">Parsing {filename}…</p>{/if}
   {#if error}
     <section class="error" role="alert"><h2>Could not load file</h2><p>{error.message}</p>
@@ -91,18 +116,23 @@
       <button aria-label="Zoom out" on:click={() => viewport = zoom(viewport, viewport.width / 2, 1 / 1.5, genome.sequenceLength)}>−</button>
       <label>Position or range (1-based) <input bind:value={coordinate} on:keydown={(event) => event.key === 'Enter' && jump()} placeholder="5,000-10,000" /></label>
       <button on:click={jump}>Go</button>
-      <label>Genetic code <select bind:value={geneticCode}><option value={11}>11 — Bacterial</option><option value={1}>1 — Standard</option></select></label>
+      <label>Genetic code <select bind:value={geneticCode}>
+        {#each geneticCodes as code}<option value={code.id}>{code.id} — {code.short_name}{recordCodeIds.has(code.id) ? ' • record' : ''}</option>{/each}
+      </select></label>
       <label><input type="checkbox" bind:checked={showLabels} /> Labels</label>
       <label><input type="checkbox" bind:checked={showStarts} /> Start codons</label>
+      <label><input type="checkbox" checked={showSourceFeatures} on:change={toggleSource} /> Show source feature</label>
       <output>{Math.floor(viewport.start + 1).toLocaleString()}..{Math.ceil(viewport.end).toLocaleString()} · {bpPerPixel(viewport).toFixed(2)} bp/px</output>
     </nav>
     <div class="workspace">
-      <section aria-label="Genome canvas">
-        <GenomeCanvas {genome} bind:viewport {geneticCode} {showLabels} {showStarts} selectedFeature={selected}
+      <section aria-label="Genome canvas region">
+        <GenomeCanvas {genome} bind:viewport {geneticCode} {showLabels} {showStarts} {showSourceFeatures} selectedFeature={selected}
           on:viewport={(event) => viewport = event.detail} on:select={(event) => selected = event.detail} />
-        <p class="canvas-alt">Visible range {Math.floor(viewport.start + 1)}..{Math.ceil(viewport.end)}. Forward CDSs point right; reverse CDSs point left. Stops are red and marked “*”.</p>
+        <p class="canvas-alt">Visible range {Math.floor(viewport.start + 1)}..{Math.ceil(viewport.end)}. Source features are {showSourceFeatures ? 'visible' : 'hidden'}. Genetic code {geneticCode}. Forward CDSs point right; reverse CDSs point left. Stops are red and marked “*”.</p>
       </section>
-      <FeatureInspector feature={selected} />
+      <section aria-label="Feature inspector region">
+        <FeatureInspector feature={selected} {geneticCode} supportedCodes={geneticCodes} on:usecode={(event) => geneticCode = event.detail} />
+      </section>
     </div>
     {#if genome.warnings.length}
       <details class="warnings" open><summary>{genome.warnings.length} parser warning{genome.warnings.length === 1 ? '' : 's'}</summary>
@@ -122,9 +152,9 @@
   .file-facts,.toolbar { display:flex; flex-wrap:wrap; gap:.7rem; align-items:center; padding:.7rem; background:#fff; border-radius:.5rem }
   .summary { padding:.8rem 1rem; background:#fff; border-radius:.5rem } .summary h2,.summary p { margin:.2rem 0 }
   dl { display:flex; flex-wrap:wrap; gap:1rem 2rem } dl div { min-width:8rem } dt { font-size:.8rem; color:#526475 } dd { margin:0; font-weight:700 }
-  .workspace { display:grid; grid-template-columns:minmax(0,3fr) minmax(240px,1fr); gap:1rem }
+  .workspace { display:grid; grid-template-columns:minmax(0,1fr); gap:1rem; min-width:0 }
   .canvas-alt { margin:.35rem 0; font-size:.85rem } .warnings { padding:1rem; background:#fff8db; border-left:5px solid #ad7400 }
   .error { padding:1rem; background:#fff0f1; border-left:5px solid #b31b34 } footer { padding:.55rem; color:#fff; background:#344b5e; border-radius:.3rem }
-  @media (max-width:800px) { header,.workspace { display:block } .privacy { display:block; margin-top:.5rem } }
+  @media (max-width:800px) { header { display:block } .privacy { display:block; margin-top:.5rem } }
   @media (prefers-reduced-motion:reduce) { :global(*) { scroll-behavior:auto !important } }
 </style>
