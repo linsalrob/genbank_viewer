@@ -2,7 +2,7 @@
 
 genbank_viewer is a local-first, Artemis-inspired GenBank genome viewer. Rust handles biological models, coordinates, parsing, translation, and coding statistics; WebAssembly exposes serialisable data; Svelte and Canvas 2D provide the interactive browser interface.
 
-![genbank_viewer viewer screenshot placeholder](docs/assets/genbank_viewer-viewer-placeholder.svg)
+![genbank_viewer screenshot placeholder](docs/assets/genbank-viewer-placeholder.svg)
 
 > Screenshot placeholder: maintainers can replace this asset after running `npm run dev` and loading `test-data/two_records.gbk`.
 

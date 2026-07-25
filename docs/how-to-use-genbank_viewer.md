@@ -21,6 +21,6 @@
 19. For malformed files, use the error’s record, line, and offending text; **Copy details** prepares debugging information. Unsupported locations are preserved, never converted to misleading bounding boxes.
 20. genbank_viewer parses files locally. It has no upload endpoint or analytics call.
 
-![Whole-genome screenshot placeholder](assets/genbank_viewer-viewer-placeholder.svg)
+![Whole-genome screenshot placeholder](assets/genbank-viewer-placeholder.svg)
 
 To regenerate screenshots, run the development server, load `test-data/two_records.gbk`, capture whole-genome and base-resolution views at 1440 px width, and replace the named placeholder while keeping useful alternative text.
