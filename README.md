@@ -10,11 +10,11 @@ Use the live application at **https://linsalrob.github.io/genbank_viewer/**.
 
 ## Capabilities
 
-- local `.gb`, `.gbk`, `.genbank`, and `.gbff` loading, including multiple records;
+- local `.gb`, `.gbk`, `.genbank`, and `.gbff` loading, including gzip-compressed files and multiple records;
 - directional, joined CDS tracks with selection and qualifier inspection;
 - cursor-centred zoom, drag/keyboard panning, coordinate jumps, and whole-genome reset;
 - base-resolution forward, reverse-complement, and globally aligned six-frame views;
-- NCBI genetic codes 11 (default) and 1, with start and stop markers;
+- all 27 currently defined NCBI genetic codes, with table 11 as the default and table-specific starts and stops;
 - structured parser warnings and union-based coding density.
 
 Files are processed inside the browser and are not uploaded. genbank_viewer currently makes no analytics or application network calls. Verify the build and deployment you use before opening sensitive clinical or unpublished sequence data.
@@ -39,7 +39,7 @@ Open the displayed local URL, choose a GenBank file, select a record, click a CD
 
 The Pages workflow builds and deploys `web/dist` after every push to `main`, and can also be started manually. It installs Rust, the `wasm32-unknown-unknown` target, `wasm-pack`, and Node.js; runs Rust and frontend checks; builds the site with Vite's `/genbank_viewer/` base; asserts that the HTML and WASM assets exist; runs a browser smoke test against the production build; and deploys the artifact with GitHub's official Pages actions.
 
-`npm run build` first compiles `crates/genome-wasm` with `wasm-pack` into `web/src/lib/wasm-pkg`, then Vite bundles its ES-module loader and `.wasm` binary into `web/dist`. The browser reads selected files through the File API and passes their text directly to `parse_genbank_json`; no sequence data is sent to a server.
+`npm run build` first compiles `crates/genome-wasm` with `wasm-pack` into `web/src/lib/wasm-pkg`, then Vite bundles its ES-module loader and `.wasm` binary into `web/dist`. The browser reads selected files through the File API, decompresses gzip locally when needed, and passes plain text directly to `parse_genbank_json`; no sequence data is sent to a server.
 
 Reproduce the Pages build and preview locally:
 

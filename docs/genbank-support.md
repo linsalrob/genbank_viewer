@@ -2,6 +2,8 @@
 
 | Construct | Status |
 |---|---|
+| Plain `.gb`, `.gbk`, `.genbank`, `.gbff` transport | Supported |
+| Gzip-compressed forms ending in `.gz` | Supported; gzip is compression, not a biological format |
 | LOCUS ID, length, topology | Supported |
 | DEFINITION, ACCESSION | Supported |
 | VERSION and other metadata | Partially supported |
@@ -20,3 +22,5 @@
 | Circular origin-spanning feature semantics | Not yet tested |
 
 Unsupported location text is stored in an explicit variant with no intervals. It is not replaced by a bounding interval, so it cannot be accidentally rendered or extracted as a different biological feature.
+
+Gzip bytes are decompressed in the browser before UTF-8 decoding and parsing. Both file-picker and drag-and-drop inputs use the same reader. Compression does not change the GenBank grammar or Rust parser.
