@@ -1,5 +1,5 @@
 {
-  "name": "webtemis-web",
+  "name": "genbank_viewer-web",
   "version": "0.1.0",
   "private": true,
   "type": "module",

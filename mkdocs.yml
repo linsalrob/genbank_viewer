@@ -1,10 +1,10 @@
-site_name: Webtemis
+site_name: genbank_viewer
 site_description: Local-first browser genome viewer
 theme:
   name: material
 nav:
   - Home: index.md
-  - Use Webtemis: how-to-use-webtemis.md
+  - Use genbank_viewer: how-to-use-genbank_viewer.md
   - Installation: installation.md
   - Development: development.md
   - Architecture: architecture.md

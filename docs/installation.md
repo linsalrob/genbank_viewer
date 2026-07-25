@@ -5,8 +5,8 @@ Install Rust 1.85 or newer, the `wasm32-unknown-unknown` target, `wasm-pack`, No
 ```bash
 rustup target add wasm32-unknown-unknown
 cargo install wasm-pack
-git clone https://github.com/linsalrob/webtemis.git
-cd webtemis/web
+git clone https://github.com/linsalrob/genbank_viewer.git
+cd genbank_viewer/web
 npm ci
 npm run dev
 ```

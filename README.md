@@ -1,8 +1,8 @@
-# Webtemis
+# genbank_viewer
 
-Webtemis is a local-first, Artemis-inspired GenBank genome viewer. Rust handles biological models, coordinates, parsing, translation, and coding statistics; WebAssembly exposes serialisable data; Svelte and Canvas 2D provide the interactive browser interface.
+genbank_viewer is a local-first, Artemis-inspired GenBank genome viewer. Rust handles biological models, coordinates, parsing, translation, and coding statistics; WebAssembly exposes serialisable data; Svelte and Canvas 2D provide the interactive browser interface.
 
-![Webtemis viewer screenshot placeholder](docs/assets/webtemis-viewer-placeholder.svg)
+![genbank_viewer viewer screenshot placeholder](docs/assets/genbank_viewer-viewer-placeholder.svg)
 
 > Screenshot placeholder: maintainers can replace this asset after running `npm run dev` and loading `test-data/two_records.gbk`.
 
@@ -15,7 +15,7 @@ Webtemis is a local-first, Artemis-inspired GenBank genome viewer. Rust handles 
 - NCBI genetic codes 11 (default) and 1, with start and stop markers;
 - structured parser warnings and union-based coding density.
 
-Files are processed inside the browser and are not uploaded. Webtemis currently makes no analytics or application network calls. Verify the build and deployment you use before opening sensitive clinical or unpublished sequence data.
+Files are processed inside the browser and are not uploaded. genbank_viewer currently makes no analytics or application network calls. Verify the build and deployment you use before opening sensitive clinical or unpublished sequence data.
 
 Current evergreen Chrome, Edge, Firefox, and Safari releases are the supported targets. Chromium-based Chromebooks are supported subject to browser file permissions.
 
@@ -50,10 +50,10 @@ cd web && npm run test:e2e
 python -m mkdocs build --strict
 ```
 
-See the [documentation home](docs/index.md), [user tutorial](docs/how-to-use-webtemis.md), [installation guide](docs/installation.md), and [contribution guide](docs/contributing.md).
+See the [documentation home](docs/index.md), [user tutorial](docs/how-to-use-genbank_viewer.md), [installation guide](docs/installation.md), and [contribution guide](docs/contributing.md).
 
 ## Status and limitations
 
-Webtemis is an active early-stage viewer, not an annotation editor. Complex GenBank locations such as `order`, `one-of`, remote accessions, and between-base positions are preserved with warnings but not drawn. Circular origin-spanning semantics, very large-file performance, and broader format support remain future work.
+genbank_viewer is an active early-stage viewer, not an annotation editor. Complex GenBank locations such as `order`, `one-of`, remote accessions, and between-base positions are preserved with warnings but not drawn. Circular origin-spanning semantics, very large-file performance, and broader format support remain future work.
 
 Contributions are welcome under the [MIT licence](LICENSE).

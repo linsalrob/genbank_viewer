@@ -53,8 +53,8 @@
   }
 </script>
 
-<svelte:head><title>Webtemis — local-first genome viewer</title></svelte:head>
-<header><div><h1>Webtemis</h1><p>Local-first GenBank genome viewer</p></div><span class="privacy">Sequence data stays in your browser</span></header>
+<svelte:head><title>genbank_viewer — local-first genome viewer</title></svelte:head>
+<header><div><h1>genbank_viewer</h1><p>Local-first GenBank genome viewer</p></div><span class="privacy">Sequence data stays in your browser</span></header>
 <main>
   <FileLoader onLoad={loadFile} />
   {#if state === 'parsing'}<p role="status">Parsing {filename}…</p>{/if}
