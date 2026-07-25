@@ -1,5 +1,5 @@
-import type { BrowserError, GenomeRecordDto, TranslationDto } from './genomeTypes'
-import init, { parse_genbank_json, translate_region_json } from './wasm-pkg/genome_wasm'
+import type { BrowserError, GeneticCodeMetadataDto, GenomeRecordDto, TranslationDto } from './genomeTypes'
+import init, { parse_genbank_json, supported_genetic_codes_json, translate_region_json } from './wasm-pkg/genome_wasm'
 
 let initialization: Promise<void> | undefined
 const translationCache = new Map<string, TranslationDto>()
@@ -33,6 +33,11 @@ export async function parseGenbankWithWasm(text: string): Promise<GenomeRecordDt
   } catch (error) {
     throw browserError(error)
   }
+}
+
+export async function supportedGeneticCodes(): Promise<GeneticCodeMetadataDto[]> {
+  await initializeWasm()
+  return supported_genetic_codes_json() as GeneticCodeMetadataDto[]
 }
 
 export async function translateRegion(
