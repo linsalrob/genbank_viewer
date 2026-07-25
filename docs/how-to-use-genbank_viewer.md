@@ -1,6 +1,6 @@
-# How to use Webtemis
+# How to use genbank_viewer
 
-1. Open the Webtemis URL in a supported browser.
+1. Open the genbank_viewer URL in a supported browser.
 2. Under **Open a local GenBank file**, choose a `.gb`, `.gbk`, `.genbank`, or `.gbff` file.
 3. Alternatively, drag the file onto the dashed loading area. The filename, size, parsing state, record count, and warning count appear.
 4. For a multi-record file, choose **Record**. The selector shows ID, length, and feature count; changing records resets the view and selection.
@@ -19,8 +19,8 @@
 17. Coding density is the percentage of bases covered by the union of CDS parts, so overlaps are counted once.
 18. Expand parser warnings to review length mismatches, unsupported locations, malformed qualifiers, and out-of-bounds features.
 19. For malformed files, use the error’s record, line, and offending text; **Copy details** prepares debugging information. Unsupported locations are preserved, never converted to misleading bounding boxes.
-20. Webtemis parses files locally. It has no upload endpoint or analytics call.
+20. genbank_viewer parses files locally. It has no upload endpoint or analytics call.
 
-![Whole-genome screenshot placeholder](assets/webtemis-viewer-placeholder.svg)
+![Whole-genome screenshot placeholder](assets/genbank-viewer-placeholder.svg)
 
 To regenerate screenshots, run the development server, load `test-data/two_records.gbk`, capture whole-genome and base-resolution views at 1440 px width, and replace the named placeholder while keeping useful alternative text.

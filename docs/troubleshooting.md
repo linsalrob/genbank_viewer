@@ -9,5 +9,5 @@
 - **Browser memory limit:** split exceptionally large multi-record files; all records live locally in browser memory.
 - **Stale WASM:** remove `web/src/lib/wasm-pkg` and run `npm run build:wasm`.
 - **npm problems:** use the documented Node version and a fresh `npm ci`.
-- **Chromebook permissions:** allow the browser to read the selected local file; Webtemis needs no folder-wide access.
+- **Chromebook permissions:** allow the browser to read the selected local file; genbank_viewer needs no folder-wide access.
 - **Offline use:** after dependencies and production assets are installed/built, serve the static `web/dist` directory without network access.
