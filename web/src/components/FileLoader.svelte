@@ -1,14 +1,17 @@
 <script lang="ts">
+  import { readGenbankFile } from '../lib/readGenomeFile'
+
   export let onLoad: (content: string, file: File) => Promise<void>
+  export let onError: (error: unknown) => void
   let dragging = false
-  const accepted = ['.gb', '.gbk', '.genbank', '.gbff']
 
   async function load(file?: File) {
     if (!file) return
-    if (!accepted.some((extension) => file.name.toLowerCase().endsWith(extension))) {
-      throw new Error(`Choose a GenBank file (${accepted.join(', ')})`)
+    try {
+      await onLoad(await readGenbankFile(file), file)
+    } catch (error) {
+      onError(error)
     }
-    await onLoad(await file.text(), file)
   }
   async function pick(event: Event) {
     await load((event.target as HTMLInputElement).files?.[0])
@@ -22,8 +25,8 @@
 
 <section role="group" aria-label="GenBank file loading" class:dragging class="loader" on:dragover={(e) => { e.preventDefault(); dragging = true }} on:dragleave={() => dragging = false} on:drop={drop}>
   <label for="genbank-file">Open a local GenBank file</label>
-  <input id="genbank-file" data-testid="file-input" type="file" accept=".gb,.gbk,.genbank,.gbff" on:change={pick} />
-  <span>or drag and drop it here — files never leave this browser</span>
+  <input id="genbank-file" data-testid="file-input" type="file" accept=".gb,.gbk,.genbank,.gbff,.gb.gz,.gbk.gz,.genbank.gz,.gbff.gz,application/gzip" on:change={pick} />
+  <span>Plain or gzip-compressed GenBank (.gz) — choose or drag and drop; files never leave this browser</span>
 </section>
 
 <style>
