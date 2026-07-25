@@ -18,3 +18,5 @@ flowchart LR
 ```
 
 Parsing tests cover syntax and warnings; core tests cover coordinates, extraction, translation, and coding unions; Vitest covers transformations and geometry; Playwright covers local upload through rendered UI.
+
+The browser's File API reads `.gb`, `.gbk`, `.genbank`, and `.gbff` text. Svelte passes that text to the wasm-bindgen export `parse_genbank_json`, and the returned records drive the viewer. The application has no backend or upload step. `wasm-pack` generates a standard ES-module loader, and Vite rewrites its relative WASM URL into the configured `/genbank_viewer/` asset base for GitHub Pages.

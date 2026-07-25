@@ -16,3 +16,13 @@ npm run build
 ```
 
 Run all common checks with `make check`; build strict documentation with `make docs`. Keep biological coordinate and translation logic in Rust, serialisation in the WASM crate, and rendering/state in `web`.
+
+`npm run build` invokes `wasm-pack` for `crates/genome-wasm`, writes its generated ES module beneath `web/src/lib/wasm-pkg`, and lets Vite emit the loader and binary into `web/dist`. For a Pages-equivalent build and preview, run:
+
+```bash
+cd web
+npm run build
+npm run preview
+```
+
+Visit http://localhost:4173/genbank_viewer/. The GitHub Pages workflow repeats the checks, validates the generated HTML and WASM artifact, exercises the production bundle in Chromium, and deploys `web/dist` on pushes to `main`.
