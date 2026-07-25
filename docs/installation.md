@@ -11,4 +11,19 @@ npm ci
 npm run dev
 ```
 
-For documentation, use Python 3.10+ and `python -m pip install -r requirements-docs.txt`. Production assets are created by `npm run build`.
+For normal development, open the URL printed by Vite. The hosted application is available at https://linsalrob.github.io/genbank_viewer/.
+
+For documentation, use Python 3.10+ and `python -m pip install -r requirements-docs.txt`.
+
+To reproduce and preview the GitHub Pages production build:
+
+```bash
+rustup target add wasm32-unknown-unknown
+cargo install wasm-pack
+cd web
+npm ci
+npm run build
+npm run preview
+```
+
+Open http://localhost:4173/genbank_viewer/. Vite's production mode selects the deployed `/genbank_viewer/` base path; ordinary `npm run dev` continues to use `/`.
