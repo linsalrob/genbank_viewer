@@ -5,7 +5,9 @@ export interface HitRegion { featureId: number; x: number; y: number; width: num
 export interface RenderResult { hitRegions: HitRegion[]; height: number }
 export type RenderMode = 'stop_tracks' | 'sequence'
 export type ReadingFrame = 1 | 2 | 3 | -1 | -2 | -3
+export type NucleotideStrand = 'forward' | 'reverse'
 export interface FrameRowLayout { frame: ReadingFrame; y: number; height: number }
+export interface NucleotideRowLayout { strand: NucleotideStrand; y: number; height: number; textBaseline?: number }
 export interface ViewerLayout {
   mode: RenderMode
   height: number
@@ -13,8 +15,7 @@ export interface ViewerLayout {
   forwardFeatureY: number
   reverseFeatureY: number
   frameRows: FrameRowLayout[]
-  forwardNucleotideY?: number
-  reverseNucleotideY?: number
+  nucleotideRows: NucleotideRowLayout[]
 }
 export interface RenderState {
   selectedFeatureId?: number
@@ -51,7 +52,10 @@ export function viewerLayout(view: GenomeViewport): ViewerLayout {
       mode: 'sequence', height: RENDER_CONFIG.sequenceHeight,
       sourceFeatureY: 36, forwardFeatureY: 44, reverseFeatureY: 280,
       frameRows: FRAME_ORDER.map((frame, index) => ({ frame, y: baselines[index] - 14, height: 18 })),
-      forwardNucleotideY: 158, reverseNucleotideY: 184,
+      nucleotideRows: [
+        { strand: 'forward', y: 142, height: 22, textBaseline: 158 },
+        { strand: 'reverse', y: 168, height: 22, textBaseline: 184 },
+      ],
     }
   }
   return {
@@ -60,7 +64,22 @@ export function viewerLayout(view: GenomeViewport): ViewerLayout {
     frameRows: FRAME_ORDER.map((frame, index) => ({
       frame, y: 72 + index * RENDER_CONFIG.stopTrackRowHeight, height: 16,
     })),
+    nucleotideRows: [
+      { strand: 'forward', y: 62, height: 8 },
+      { strand: 'reverse', y: 180, height: 10 },
+    ],
   }
+}
+
+export function frameRowFor(layout: ViewerLayout, frame: ReadingFrame): FrameRowLayout {
+  return layout.frameRows.find((row) => row.frame === frame) ?? layout.frameRows[0]
+}
+
+export function nucleotideRowFor(
+  layout: ViewerLayout,
+  strand: NucleotideStrand,
+): NucleotideRowLayout {
+  return layout.nucleotideRows.find((row) => row.strand === strand) ?? layout.nucleotideRows[0]
 }
 
 export function renderHeight(view: GenomeViewport): number {
@@ -88,20 +107,44 @@ export function featureGeometry(feature: FeatureDto, view: GenomeViewport, y: nu
   }))
 }
 
-export function searchHighlightGeometry(
+export type SearchHighlightTarget =
+  | { kind: 'frame'; frame: ReadingFrame }
+  | { kind: 'nucleotide'; strand: NucleotideStrand }
+export interface SearchHighlightGeometry {
+  x: number
+  width: number
+  y: number
+  height: number
+  label: string
+  target: SearchHighlightTarget
+}
+
+export function searchHighlightGeometries(
   match: SequenceSearchMatchDto,
   view: GenomeViewport,
-): { x: number; width: number; y: number; height: number; label: string } {
+  layout = viewerLayout(view),
+): SearchHighlightGeometry[] {
   const x = genomeToScreen(match.start, view)
   const width = Math.max(2, genomeToScreen(match.end, view) - x)
-  const layout = viewerLayout(view)
-  if (layout.mode === 'stop_tracks') return { x, width, y: 28, height: layout.height - 32, label: searchLabel(match) }
   if (match.matchType === 'amino_acid') {
-    const row = layout.frameRows.find((item) => item.frame === match.frame) ?? layout.frameRows[0]
-    return { x, width, y: row.y, height: row.height, label: searchLabel(match) }
+    const frame = match.frame ?? 1
+    const row = frameRowFor(layout, frame)
+    return [{
+      x, width, y: row.y, height: row.height,
+      label: `frame ${signedFrame(frame)} match`, target: { kind: 'frame', frame },
+    }]
   }
-  const y = match.strand === 'Reverse' ? 168 : 142
-  return { x, width, y, height: match.strand === 'Unknown' ? 52 : 22, label: searchLabel(match) }
+  const strands: NucleotideStrand[] = match.strand === 'Unknown'
+    ? ['forward', 'reverse']
+    : [match.strand === 'Reverse' ? 'reverse' : 'forward']
+  return strands.map((strand) => {
+    const row = nucleotideRowFor(layout, strand)
+    return {
+      x, width, y: row.y, height: row.height,
+      label: match.strand === 'Unknown' ? 'both-strand nucleotide match' : `${strand} nucleotide match`,
+      target: { kind: 'nucleotide', strand },
+    }
+  })
 }
 
 export interface StopBarGeometry { frame: ReadingFrame; x: number; y: number; width: number; height: number }
@@ -134,9 +177,8 @@ export function stopBarGeometries(
   return bars
 }
 
-function searchLabel(match: SequenceSearchMatchDto): string {
-  if (match.frame) return `match frame ${match.frame > 0 ? '+' : ''}${match.frame}`
-  return `match ${match.strand === 'Unknown' ? 'both strands' : match.strand.toLowerCase()}`
+function signedFrame(frame: ReadingFrame): string {
+  return frame > 0 ? `+${frame}` : String(frame)
 }
 
 export function hitTest(regions: HitRegion[], x: number, y: number): number | undefined {
@@ -156,7 +198,8 @@ export function renderGenome(
   context.clearRect(0, 0, viewport.width, height)
   context.fillStyle = '#fff'
   context.fillRect(0, 0, viewport.width, height)
-  if (state.searchMatch) drawSearchHighlight(context, state.searchMatch, viewport)
+  if (layout.mode === 'stop_tracks') drawStopTrackBackgrounds(context, viewport, layout)
+  if (state.searchMatch) drawSearchHighlightBackground(context, state.searchMatch, viewport, layout)
   drawRuler(context, viewport)
   const visible = featuresForRendering(genome, state)
   const sources = visible.filter((feature) => feature.type.toLowerCase() === 'source')
@@ -168,18 +211,16 @@ export function renderGenome(
     ...drawFeatures(context, annotations, viewport, state, layout.reverseFeatureY, -1, false),
   ]
   if (layout.mode === 'sequence') drawSequenceAndFrames(context, genome, viewport, state, layout)
-  else drawStopTracks(context, state.stopCodons ?? [], viewport, layout)
+  else drawStopTrackContent(context, state.stopCodons ?? [], viewport, layout)
+  if (state.searchMatch) drawSearchHighlightForeground(context, state.searchMatch, viewport, layout)
   return { hitRegions: hits, height }
 }
 
-function drawStopTracks(
+function drawStopTrackBackgrounds(
   context: CanvasRenderingContext2D,
-  stops: StopCodonDto[],
   viewport: GenomeViewport,
   layout: ViewerLayout,
 ) {
-  context.font = 'bold 11px ui-monospace, monospace'
-  context.textAlign = 'left'
   for (const row of layout.frameRows) {
     context.fillStyle = row.frame > 0 ? 'rgba(228, 237, 244, .38)' : 'rgba(214, 226, 235, .38)'
     context.fillRect(0, row.y, viewport.width, row.height)
@@ -189,48 +230,95 @@ function drawStopTracks(
     context.lineTo(viewport.width, row.y + row.height - .5)
     context.stroke()
   }
+  for (const row of layout.nucleotideRows) {
+    context.fillStyle = row.strand === 'forward' ? 'rgba(224, 242, 235, .5)' : 'rgba(239, 226, 234, .5)'
+    context.fillRect(0, row.y, viewport.width, row.height)
+  }
+}
+
+function drawStopTrackContent(
+  context: CanvasRenderingContext2D,
+  stops: StopCodonDto[],
+  viewport: GenomeViewport,
+  layout: ViewerLayout,
+) {
   context.fillStyle = '#b31b34'
   for (const bar of stopBarGeometries(stops, viewport, layout)) {
     context.fillRect(bar.x - bar.width / 2, bar.y, bar.width, bar.height)
   }
+  context.font = 'bold 11px ui-monospace, monospace'
+  context.textAlign = 'left'
   for (const row of layout.frameRows) {
     context.fillStyle = 'rgba(244, 248, 251, .9)'
     context.fillRect(0, row.y, 32, row.height)
     context.fillStyle = '#263849'
-    context.fillText(row.frame > 0 ? `+${row.frame}` : String(row.frame), 7, row.y + 12)
+    context.fillText(signedFrame(row.frame), 7, row.y + 12)
+  }
+  context.font = 'bold 9px ui-monospace, monospace'
+  for (const row of layout.nucleotideRows) {
+    context.fillStyle = 'rgba(244, 248, 251, .9)'
+    context.fillRect(0, row.y, 32, row.height)
+    context.fillStyle = '#263849'
+    context.fillText(row.strand === 'forward' ? 'F nt' : 'R nt', 4, row.y + row.height - 1)
   }
 }
 
-function drawSearchHighlight(
+function drawSearchHighlightBackground(
   context: CanvasRenderingContext2D,
   match: SequenceSearchMatchDto,
   viewport: GenomeViewport,
+  layout: ViewerLayout,
 ) {
   if (match.end <= viewport.start || match.start >= viewport.end) return
-  const geometry = searchHighlightGeometry(match, viewport)
+  for (const geometry of searchHighlightGeometries(match, viewport, layout)) {
+    const { left, width } = clippedHighlight(geometry, viewport)
+    context.fillStyle = 'rgba(255, 191, 71, .34)'
+    context.fillRect(left, geometry.y, width, geometry.height)
+    context.strokeStyle = 'rgba(138, 87, 0, .72)'
+    context.lineWidth = 1
+    context.save()
+    context.beginPath()
+    context.rect(left, geometry.y, width, geometry.height)
+    context.clip()
+    for (let hatchX = left - geometry.height; hatchX < left + width; hatchX += 10) {
+      context.beginPath()
+      context.moveTo(hatchX, geometry.y + geometry.height)
+      context.lineTo(hatchX + geometry.height, geometry.y)
+      context.stroke()
+    }
+    context.restore()
+  }
+}
+
+function drawSearchHighlightForeground(
+  context: CanvasRenderingContext2D,
+  match: SequenceSearchMatchDto,
+  viewport: GenomeViewport,
+  layout: ViewerLayout,
+) {
+  if (match.end <= viewport.start || match.start >= viewport.end) return
+  for (const geometry of searchHighlightGeometries(match, viewport, layout)) {
+    const { left, width } = clippedHighlight(geometry, viewport)
+    context.strokeStyle = '#8a5700'
+    context.lineWidth = 2
+    context.strokeRect(left, geometry.y, width, geometry.height)
+    context.lineWidth = 1
+    if (layout.mode === 'stop_tracks') {
+      context.fillStyle = '#5f3b00'
+      context.font = 'bold 9px system-ui'
+      context.textAlign = 'left'
+      context.fillText(geometry.label, Math.max(35, left + 3), geometry.y + Math.min(12, geometry.height - 1))
+    }
+  }
+}
+
+function clippedHighlight(
+  geometry: SearchHighlightGeometry,
+  viewport: GenomeViewport,
+): { left: number; width: number } {
   const left = Math.max(0, geometry.x)
   const right = Math.min(viewport.width, geometry.x + geometry.width)
-  context.fillStyle = 'rgba(255, 191, 71, .28)'
-  context.fillRect(left, geometry.y, Math.max(1, right - left), geometry.height)
-  context.strokeStyle = '#8a5700'
-  context.lineWidth = 2
-  context.strokeRect(left, geometry.y, Math.max(1, right - left), geometry.height)
-  context.lineWidth = 1
-  context.save()
-  context.beginPath()
-  context.rect(left, geometry.y, Math.max(1, right - left), geometry.height)
-  context.clip()
-  for (let x = left - geometry.height; x < right; x += 10) {
-    context.beginPath()
-    context.moveTo(x, geometry.y + geometry.height)
-    context.lineTo(x + geometry.height, geometry.y)
-    context.stroke()
-  }
-  context.restore()
-  context.fillStyle = '#5f3b00'
-  context.font = 'bold 11px system-ui'
-  context.textAlign = 'left'
-  context.fillText(geometry.label, Math.max(3, left + 3), geometry.y + 12)
+  return { left, width: Math.max(1, right - left) }
 }
 
 function drawRuler(context: CanvasRenderingContext2D, viewport: GenomeViewport) {
@@ -357,8 +445,8 @@ function drawSequenceAndFrames(
   const last = Math.min(genome.sequenceLength, Math.ceil(viewport.end))
   for (let position = first; position < last; position++) {
     const x = genomeToScreen(position + 0.5, viewport)
-    context.fillText(genome.sequence[position], x, layout.forwardNucleotideY!)
-    context.fillText(genome.reverseComplement[genome.sequenceLength - position - 1], x, layout.reverseNucleotideY!)
+    context.fillText(genome.sequence[position], x, nucleotideRowFor(layout, 'forward').textBaseline!)
+    context.fillText(genome.reverseComplement[genome.sequenceLength - position - 1], x, nucleotideRowFor(layout, 'reverse').textBaseline!)
   }
   for (const codon of state.translation?.codons ?? []) {
     const y = frameY.get(codon.frame)
