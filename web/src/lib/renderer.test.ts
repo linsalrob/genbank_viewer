@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest'
-import { featureGeometry, featuresForRendering, hitTest, renderGenome, renderHeight, rulerStep, searchHighlightGeometry } from './renderer'
-import type { FeatureDto, GenomeRecordDto, SequenceSearchMatchDto } from './genomeTypes'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { FRAME_ORDER, featureGeometry, featuresForRendering, hitTest, renderGenome, renderHeight, renderMode, rulerStep, searchHighlightGeometry, stopBarGeometries, viewerLayout } from './renderer'
+import type { FeatureDto, GenomeRecordDto, SequenceSearchMatchDto, StopCodonDto } from './genomeTypes'
 
 const feature: FeatureDto = {
   id: 7, type: 'CDS', strand: 1, start: 10, end: 40, label: 'abc',
@@ -27,6 +27,7 @@ const context = {
 } as unknown as CanvasRenderingContext2D
 const state = { showLabels: true, showStarts: true, showSourceFeatures: false }
 describe('renderer geometry', () => {
+  beforeEach(() => vi.clearAllMocks())
   it('creates geometry for every joined part', () => {
     const pieces = featureGeometry(feature, { start: 0, end: 100, width: 1000 }, 20)
     expect(pieces).toHaveLength(2)
@@ -51,11 +52,75 @@ describe('renderer geometry', () => {
     expect(hidden.map((region) => region.featureId)).toContain(7)
     expect(hidden.map((region) => region.featureId)).not.toContain(1)
     expect(visible.map((region) => region.featureId)).toContain(1)
-    expect(hitTest(visible, 5, 40)).toBe(1)
+    expect(hitTest(visible, .5, 40)).toBe(1)
   })
   it('uses taller responsive render layouts', () => {
-    expect(renderHeight({ start: 0, end: 1000, width: 100 })).toBe(140)
+    expect(renderMode({ start: 0, end: 1000, width: 100 })).toBe('stop_tracks')
+    expect(renderHeight({ start: 0, end: 1000, width: 100 })).toBe(224)
     expect(renderHeight({ start: 0, end: 100, width: 100 })).toBe(312)
+  })
+  it('defines stable rows for all six frames above reverse features', () => {
+    const layout = viewerLayout({ start: 0, end: 1000, width: 100 })
+    expect(layout.frameRows.map((row) => row.frame)).toEqual(FRAME_ORDER)
+    expect(layout.frameRows.map((row) => row.y)).toEqual([72, 90, 108, 126, 144, 162])
+    expect(layout.reverseFeatureY).toBeGreaterThan(layout.frameRows.at(-1)!.y + layout.frameRows.at(-1)!.height)
+  })
+  it('places stop bars by codon centre in the correct forward and reverse rows', () => {
+    const view = { start: 0, end: 100, width: 1000 }
+    const stops: StopCodonDto[] = [
+      { genomic_start: 9, genomic_end: 12, frame: 1 },
+      { genomic_start: 48, genomic_end: 51, frame: -3 },
+    ]
+    const compactLayout = viewerLayout({ start: 0, end: 1000, width: 100 })
+    expect(stopBarGeometries(stops, view, compactLayout)).toMatchObject([
+      { frame: 1, x: 105, y: 74, width: 1.5, height: 12 },
+      { frame: -3, x: 495, y: 164, width: 1.5, height: 12 },
+    ])
+  })
+  it('clips stops and deduplicates only bars sharing a frame and screen pixel', () => {
+    const view = { start: 10, end: 1010, width: 100 }
+    const stops: StopCodonDto[] = [
+      { genomic_start: 0, genomic_end: 3, frame: 1 },
+      { genomic_start: 30, genomic_end: 33, frame: 1 },
+      { genomic_start: 31, genomic_end: 34, frame: 1 },
+      { genomic_start: 31, genomic_end: 34, frame: 2 },
+      { genomic_start: 1100, genomic_end: 1103, frame: -3 },
+    ]
+    const bars = stopBarGeometries(stops, view)
+    expect(bars).toHaveLength(2)
+    expect(bars.map((bar) => bar.frame)).toEqual([1, 2])
+  })
+  it('keeps distinct stop positions and paints bars over search highlighting', () => {
+    const view = { start: 0, end: 1000, width: 100 }
+    const stops: StopCodonDto[] = [
+      { genomic_start: 30, genomic_end: 33, frame: 1 },
+      { genomic_start: 300, genomic_end: 303, frame: 1 },
+    ]
+    expect(stopBarGeometries(stops, view)).toHaveLength(2)
+    const searchMatch: SequenceSearchMatchDto = {
+      start: 20, end: 40, strand: 'Forward', frame: null,
+      matchType: 'nucleotide', matchedSequence: 'A'.repeat(20), geneticCode: null,
+    }
+    renderGenome(context, genome, view, { ...state, searchMatch, stopCodons: stops })
+    const calls = vi.mocked(context.fillRect).mock.calls
+    const highlightIndex = calls.findIndex((call) => call[1] === 28)
+    const firstBarIndex = calls.findIndex((call) => call[1] === 74 && call[2] === 1.5)
+    expect(highlightIndex).toBeGreaterThanOrEqual(0)
+    expect(firstBarIndex).toBeGreaterThan(highlightIndex)
+  })
+  it('draws compact bars without amino acids and detailed amino-acid symbols without bars', () => {
+    const stop: StopCodonDto = { genomic_start: 9, genomic_end: 12, frame: 1 }
+    renderGenome(context, genome, { start: 0, end: 1000, width: 100 }, { ...state, stopCodons: [stop] })
+    expect(context.fillText).toHaveBeenCalledWith('+1', 7, 84)
+    expect(context.fillText).not.toHaveBeenCalledWith('*', expect.any(Number), expect.any(Number))
+    vi.clearAllMocks()
+    renderGenome(context, genome, { start: 0, end: 100, width: 1000 }, {
+      ...state,
+      translation: { region_start: 0, region_end: 100, codons: [{
+        ...stop, amino_acid: '*', codon: [84, 65, 65], is_start: false, is_stop: true,
+      }] },
+    })
+    expect(context.fillText).toHaveBeenCalledWith('*', 105, 90)
   })
   it('positions search highlights on nucleotide and frame tracks', () => {
     const nucleotide: SequenceSearchMatchDto = {

@@ -84,3 +84,29 @@ test('searches nucleotides and six-frame peptides locally and navigates matches'
     'aria-label', /No sequence search match highlighted/,
   )
 })
+
+test('shows genetic-code-aware stop tracks before the detailed sequence view', async ({ page }) => {
+  await page.goto('/genbank_viewer/')
+  await page.getByTestId('file-input').setInputFiles(path.resolve('../test-data/stop_tracks.gbk'))
+  await expect(page.getByRole('heading', { name: 'STOPTRACK' })).toBeVisible()
+
+  const canvas = page.locator('canvas[aria-label^="Genome viewer"]')
+  await expect(canvas).toHaveAttribute('data-render-mode', 'stop_tracks')
+  await expect(canvas).toHaveAttribute('aria-label', /vertical bars in six reading-frame tracks/)
+  await expect.poll(async () => Number(await canvas.getAttribute('data-stop-count'))).toBeGreaterThan(0)
+
+  const code = page.getByRole('combobox', { name: 'Genetic code', exact: true })
+  await code.selectOption('1')
+  await expect(canvas).toHaveAttribute('data-render-data-code', '1')
+  await expect.poll(async () => Number(await canvas.getAttribute('data-stop-count'))).toBeGreaterThan(0)
+  const standardStops = Number(await canvas.getAttribute('data-stop-count'))
+  await code.selectOption('4')
+  await expect(canvas).toHaveAttribute('data-render-data-code', '4')
+  await expect.poll(async () => Number(await canvas.getAttribute('data-stop-count'))).not.toBe(standardStops)
+
+  await page.getByLabel('Position or range (1-based)').fill('1-120')
+  await page.getByRole('button', { name: 'Go', exact: true }).click()
+  await expect(canvas).toHaveAttribute('data-render-mode', 'sequence')
+  await expect(canvas).toHaveAttribute('aria-label', /nucleotide and amino-acid sequences in six reading frames/)
+  await expect.poll(async () => Number(await canvas.getAttribute('data-translated-codon-count'))).toBeGreaterThan(0)
+})
