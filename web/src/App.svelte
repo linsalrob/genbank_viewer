@@ -3,8 +3,10 @@
   import FileLoader from './components/FileLoader.svelte'
   import GenomeCanvas from './components/GenomeCanvas.svelte'
   import FeatureInspector from './components/FeatureInspector.svelte'
-  import type { BrowserError, FeatureDto, GeneticCodeMetadataDto, GenomeRecordDto } from './lib/genomeTypes'
-  import { parseGenbankWithWasm, supportedGeneticCodes } from './lib/wasm'
+  import SequenceSearch from './components/SequenceSearch.svelte'
+  import type { BrowserError, FeatureDto, GeneticCodeMetadataDto, GenomeRecordDto, SequenceSearchMatchDto, SequenceSearchType } from './lib/genomeTypes'
+  import { adjacentResultIndex, normalizeQueryForDisplay, sortSearchResults, viewportForSearchMatch } from './lib/search'
+  import { parseGenbankWithWasm, searchSequence, supportedGeneticCodes } from './lib/wasm'
   import { bpPerPixel, parseCoordinateInput, zoom, type GenomeViewport } from './lib/viewport'
 
   let records: GenomeRecordDto[] = []
@@ -21,6 +23,14 @@
   let showStarts = true
   let showSourceFeatures = false
   let geneticCodes: GeneticCodeMetadataDto[] = []
+  let searchQuery = ''
+  let searchType: SequenceSearchType = 'nucleotide'
+  let searchMatches: SequenceSearchMatchDto[] = []
+  let searchIndex = -1
+  let searchStatus = ''
+  let searchError: string | null = null
+  let searchMatch: SequenceSearchMatchDto | null = null
+  $: searchMatch = searchMatches[searchIndex] ?? null
   $: genome = records[recordIndex]
   $: recordCodeIds = new Set<number>((genome?.features ?? []).flatMap((feature) =>
     feature.qualifiers
@@ -42,6 +52,7 @@
   }
 
   async function loadFile(content: string, file: File) {
+    clearSearch()
     records = []
     recordIndex = 0
     selected = null
@@ -61,6 +72,7 @@
     if (!record) return
     viewport = { ...viewport, start: 0, end: Math.max(1, record.sequenceLength) }
     selected = null
+    clearSearch()
   }
   function wholeGenome() {
     viewport = { ...viewport, start: 0, end: Math.max(1, genome.sequenceLength) }
@@ -75,6 +87,55 @@
   function toggleSource() {
     showSourceFeatures = !showSourceFeatures
     if (!showSourceFeatures && selected?.type.toLowerCase() === 'source') selected = null
+  }
+  function clearSearch() {
+    searchQuery = ''
+    clearSearchResults()
+  }
+  function clearSearchResults() {
+    searchMatches = []
+    searchIndex = -1
+    searchStatus = ''
+    searchError = null
+  }
+  function selectSearchMatch(index: number) {
+    const match = searchMatches[index]
+    if (!match || !genome) return
+    searchIndex = index
+    viewport = viewportForSearchMatch(match, genome.sequenceLength, viewport.width)
+  }
+  function moveSearchMatch(direction: -1 | 1) {
+    selectSearchMatch(adjacentResultIndex(searchIndex, searchMatches.length, direction))
+  }
+  async function performSearch() {
+    if (!genome) return
+    searchError = null
+    searchStatus = 'Searching locally…'
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    try {
+      searchMatches = sortSearchResults(await searchSequence(genome, searchQuery, searchType, geneticCode))
+      const length = normalizeQueryForDisplay(searchQuery, searchType).length
+      if (searchMatches.length === 0) {
+        searchIndex = -1
+        searchStatus = `No matches found · ${searchType === 'nucleotide' ? 'nucleotide' : 'amino acid'} query · ${length} ${searchType === 'nucleotide' ? 'bases' : 'residues'}${searchType === 'amino_acid' ? ` · genetic code ${geneticCode}` : ''}`
+        return
+      }
+      searchStatus = `${searchMatches.length.toLocaleString()} match${searchMatches.length === 1 ? '' : 'es'} · ${searchType === 'nucleotide' ? 'nucleotide' : 'amino acid'} query · ${length} ${searchType === 'nucleotide' ? 'bases' : 'residues'}${searchType === 'amino_acid' ? ` · genetic code ${geneticCode}` : ''}`
+      selectSearchMatch(0)
+    } catch (caught) {
+      searchMatches = []
+      searchIndex = -1
+      const candidate = caught as Partial<BrowserError>
+      searchError = candidate.message ?? String(caught)
+      searchStatus = ''
+    }
+  }
+  function geneticCodeChanged() {
+    if (searchType === 'amino_acid' && searchQuery.trim()) void performSearch()
+  }
+  function useFeatureCode(code: number) {
+    geneticCode = code
+    geneticCodeChanged()
   }
 </script>
 
@@ -116,7 +177,7 @@
       <button aria-label="Zoom out" on:click={() => viewport = zoom(viewport, viewport.width / 2, 1 / 1.5, genome.sequenceLength)}>−</button>
       <label>Position or range (1-based) <input bind:value={coordinate} on:keydown={(event) => event.key === 'Enter' && jump()} placeholder="5,000-10,000" /></label>
       <button on:click={jump}>Go</button>
-      <label>Genetic code <select bind:value={geneticCode}>
+      <label>Genetic code <select bind:value={geneticCode} on:change={geneticCodeChanged}>
         {#each geneticCodes as code}<option value={code.id}>{code.id} — {code.short_name}{recordCodeIds.has(code.id) ? ' • record' : ''}</option>{/each}
       </select></label>
       <label><input type="checkbox" bind:checked={showLabels} /> Labels</label>
@@ -124,14 +185,18 @@
       <label><input type="checkbox" checked={showSourceFeatures} on:change={toggleSource} /> Show source feature</label>
       <output>{Math.floor(viewport.start + 1).toLocaleString()}..{Math.ceil(viewport.end).toLocaleString()} · {bpPerPixel(viewport).toFixed(2)} bp/px</output>
     </nav>
+    <SequenceSearch bind:query={searchQuery} bind:searchType {geneticCode} features={genome.features}
+      matches={searchMatches} selectedIndex={searchIndex} status={searchStatus} error={searchError}
+      on:search={performSearch} on:clear={clearSearch} on:typechange={clearSearchResults}
+      on:select={(event) => selectSearchMatch(event.detail)} on:previous={() => moveSearchMatch(-1)} on:next={() => moveSearchMatch(1)} />
     <div class="workspace">
       <section aria-label="Genome canvas region">
-        <GenomeCanvas {genome} bind:viewport {geneticCode} {showLabels} {showStarts} {showSourceFeatures} selectedFeature={selected}
+        <GenomeCanvas {genome} bind:viewport {geneticCode} {showLabels} {showStarts} {showSourceFeatures} selectedFeature={selected} {searchMatch}
           on:viewport={(event) => viewport = event.detail} on:select={(event) => selected = event.detail} />
-        <p class="canvas-alt">Visible range {Math.floor(viewport.start + 1)}..{Math.ceil(viewport.end)}. Source features are {showSourceFeatures ? 'visible' : 'hidden'}. Genetic code {geneticCode}. Forward CDSs point right; reverse CDSs point left. Stops are red and marked “*”.</p>
+        <p class="canvas-alt">Visible range {Math.floor(viewport.start + 1)}..{Math.ceil(viewport.end)}. Source features are {showSourceFeatures ? 'visible' : 'hidden'}. Genetic code {geneticCode}.{searchMatch ? ` Sequence-search match highlighted at ${searchMatch.start + 1}..${searchMatch.end}.` : ''} Forward CDSs point right; reverse CDSs point left. Stops are red and marked “*”.</p>
       </section>
       <section aria-label="Feature inspector region">
-        <FeatureInspector feature={selected} {geneticCode} supportedCodes={geneticCodes} on:usecode={(event) => geneticCode = event.detail} />
+        <FeatureInspector feature={selected} {geneticCode} supportedCodes={geneticCodes} on:usecode={(event) => useFeatureCode(event.detail)} />
       </section>
     </div>
     {#if genome.warnings.length}

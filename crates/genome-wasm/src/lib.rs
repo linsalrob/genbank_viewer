@@ -1,3 +1,4 @@
+use genome_core::search::{search_amino_acids, search_nucleotides, SearchError};
 use genome_core::translation::{supported_genetic_codes, translate_region_six_frames, GeneticCode};
 use genome_core::{Feature, GenomeRecord, Location, Qualifier, Strand, Topology};
 use genome_formats::parse_genbank;
@@ -96,6 +97,32 @@ pub fn supported_genetic_codes_json() -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
+pub fn search_sequence_json(
+    sequence: &[u8],
+    query: &str,
+    search_type: &str,
+    genetic_code: u8,
+) -> Result<JsValue, JsValue> {
+    let matches = match search_type {
+        "nucleotide" => search_nucleotides(sequence, query).map_err(search_error)?,
+        "amino_acid" => {
+            let code = GeneticCode::try_from(genetic_code).map_err(translation_error)?;
+            search_amino_acids(sequence, query, code).map_err(search_error)?
+        }
+        _ => {
+            return Err(error_value(BrowserError {
+                code: "invalid_search_type",
+                message: "search type must be nucleotide or amino_acid".to_string(),
+                record_id: None,
+                line: None,
+                offending_text: None,
+            }))
+        }
+    };
+    serialize(&matches)
+}
+
+#[wasm_bindgen]
 pub fn coding_summary_json(record_json: JsValue) -> Result<JsValue, JsValue> {
     let record: GenomeRecord = serde_wasm_bindgen::from_value(record_json).map_err(|error| {
         error_value(BrowserError {
@@ -112,6 +139,23 @@ pub fn coding_summary_json(record_json: JsValue) -> Result<JsValue, JsValue> {
 fn translation_error(error: impl std::fmt::Display) -> JsValue {
     error_value(BrowserError {
         code: "translation_error",
+        message: error.to_string(),
+        record_id: None,
+        line: None,
+        offending_text: None,
+    })
+}
+
+fn search_error(error: SearchError) -> JsValue {
+    let code = match error {
+        SearchError::EmptyQuery => "empty_query",
+        SearchError::QueryTooShort { .. } => "query_too_short",
+        SearchError::QueryLongerThanSequence => "query_longer_than_sequence",
+        SearchError::InvalidNucleotideCharacter { .. } => "invalid_nucleotide_character",
+        SearchError::InvalidAminoAcidCharacter { .. } => "invalid_amino_acid_character",
+    };
+    error_value(BrowserError {
+        code,
         message: error.to_string(),
         record_id: None,
         line: None,

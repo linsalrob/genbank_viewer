@@ -1,6 +1,6 @@
 # Architecture
 
-`genome-core` owns browser-independent models, coordinates, extraction, translation, and coding unions. `genome-formats` parses records and warnings. `genome-wasm` converts those values to stable camel-case DTOs and structured errors. `web` owns file UI, record/viewport state, a bounded regional-translation cache, interactions, independent Canvas rendering, hit testing, and inspection.
+`genome-core` owns browser-independent models, coordinates, extraction, translation, exact sequence searching, and coding unions. `genome-formats` parses records and warnings. `genome-wasm` converts those values to stable camel-case DTOs and structured errors. `web` owns file UI, record/viewport state, a bounded regional-translation cache, interactions, independent Canvas rendering, hit testing, search navigation, and inspection.
 
 ```mermaid
 flowchart LR
@@ -15,8 +15,15 @@ flowchart LR
   Region --> Translate[Rust six-frame translation]
   Translate --> Cache[bounded browser cache]
   Cache --> Canvas
+  State --> Query[sequence query + selected code]
+  Query --> Search[Rust nucleotide or six-frame search]
+  Search --> Match[zero-based match DTO]
+  Match --> Viewport[contextual viewport]
+  Match --> Canvas
 ```
 
-Parsing tests cover syntax and warnings; core tests cover coordinates, extraction, translation, and coding unions; Vitest covers transformations and geometry; Playwright covers local upload through rendered UI.
+Parsing tests cover syntax and warnings; core tests cover coordinates, extraction, translation, IUPAC matching, six-frame match mapping, and coding unions; Vitest covers transformations, search navigation, viewports, and geometry; Playwright covers local upload and both search modes through the rendered UI.
 
 The browser's File API reads `.gb`, `.gbk`, `.genbank`, and `.gbff` text. Svelte passes that text to the wasm-bindgen export `parse_genbank_json`, and the returned records drive the viewer. The application has no backend or upload step. `wasm-pack` generates a standard ES-module loader, and Vite rewrites its relative WASM URL into the configured `/genbank_viewer/` asset base for GitHub Pages.
+
+Search text and the selected record sequence are passed to the thin `search_sequence_json` WASM export. `genome-core` normalizes and validates the query, scans IUPAC nucleotide windows or translates one reading frame at a time, and returns sorted forward-reference intervals. Svelte converts the selected match into a clamped viewport; the Canvas renderer paints a separate non-interactive highlight layer. No whole-genome translation strings are constructed in TypeScript.

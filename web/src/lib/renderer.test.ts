@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { featureGeometry, featuresForRendering, hitTest, renderGenome, renderHeight, rulerStep } from './renderer'
-import type { FeatureDto, GenomeRecordDto } from './genomeTypes'
+import { featureGeometry, featuresForRendering, hitTest, renderGenome, renderHeight, rulerStep, searchHighlightGeometry } from './renderer'
+import type { FeatureDto, GenomeRecordDto, SequenceSearchMatchDto } from './genomeTypes'
 
 const feature: FeatureDto = {
   id: 7, type: 'CDS', strand: 1, start: 10, end: 40, label: 'abc',
@@ -22,7 +22,8 @@ const genome: GenomeRecordDto = {
 const context = {
   clearRect: vi.fn(), fillRect: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(),
   stroke: vi.fn(), fillText: vi.fn(), closePath: vi.fn(), fill: vi.fn(), setLineDash: vi.fn(),
-  strokeRect: vi.fn(), fillStyle: '', strokeStyle: '', font: '', textAlign: '', lineWidth: 1,
+  strokeRect: vi.fn(), save: vi.fn(), rect: vi.fn(), clip: vi.fn(), restore: vi.fn(),
+  fillStyle: '', strokeStyle: '', font: '', textAlign: '', lineWidth: 1,
 } as unknown as CanvasRenderingContext2D
 const state = { showLabels: true, showStarts: true, showSourceFeatures: false }
 describe('renderer geometry', () => {
@@ -55,5 +56,26 @@ describe('renderer geometry', () => {
   it('uses taller responsive render layouts', () => {
     expect(renderHeight({ start: 0, end: 1000, width: 100 })).toBe(140)
     expect(renderHeight({ start: 0, end: 100, width: 100 })).toBe(312)
+  })
+  it('positions search highlights on nucleotide and frame tracks', () => {
+    const nucleotide: SequenceSearchMatchDto = {
+      start: 10, end: 20, strand: 'Reverse', frame: null, matchType: 'nucleotide', matchedSequence: 'ACGT', geneticCode: null,
+    }
+    const nucleotideGeometry = searchHighlightGeometry(nucleotide, { start: 0, end: 100, width: 1000 })
+    expect(nucleotideGeometry).toMatchObject({ x: 100, width: 100, y: 168, height: 22, label: 'match reverse' })
+    const peptideGeometry = searchHighlightGeometry(
+      { ...nucleotide, strand: 'Forward', frame: -2, matchType: 'amino_acid', geneticCode: 11 },
+      { start: 0, end: 100, width: 1000 },
+    )
+    expect(peptideGeometry).toMatchObject({ x: 100, width: 100, y: 222, height: 18, label: 'match frame -2' })
+  })
+  it('draws a non-colour search cue without adding feature hit regions', () => {
+    const match: SequenceSearchMatchDto = {
+      start: 10, end: 20, strand: 'Forward', frame: null, matchType: 'nucleotide', matchedSequence: 'AAAAAAAAAA', geneticCode: null,
+    }
+    const result = renderGenome(context, genome, { start: 0, end: 100, width: 1000 }, { ...state, searchMatch: match })
+    expect(context.rect).toHaveBeenCalled()
+    expect(context.fillText).toHaveBeenCalledWith('match forward', expect.any(Number), expect.any(Number))
+    expect(result.hitRegions.map((region) => region.featureId)).toEqual([7, 7])
   })
 })

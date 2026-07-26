@@ -1,4 +1,4 @@
-import type { FeatureDto, GenomeRecordDto, TranslationDto } from './genomeTypes'
+import type { FeatureDto, GenomeRecordDto, SequenceSearchMatchDto, TranslationDto } from './genomeTypes'
 import { bpPerPixel, genomeToScreen, type GenomeViewport } from './viewport'
 
 export interface HitRegion { featureId: number; x: number; y: number; width: number; height: number }
@@ -8,6 +8,7 @@ export interface RenderState {
   showLabels: boolean
   showStarts: boolean
   showSourceFeatures: boolean
+  searchMatch?: SequenceSearchMatchDto | null
   translation?: TranslationDto
 }
 
@@ -49,6 +50,27 @@ export function featureGeometry(feature: FeatureDto, view: GenomeViewport, y: nu
   }))
 }
 
+export function searchHighlightGeometry(
+  match: SequenceSearchMatchDto,
+  view: GenomeViewport,
+): { x: number; width: number; y: number; height: number; label: string } {
+  const x = genomeToScreen(match.start, view)
+  const width = Math.max(2, genomeToScreen(match.end, view) - x)
+  const highZoom = bpPerPixel(view) <= RENDER_CONFIG.baseThreshold
+  if (!highZoom) return { x, width, y: 28, height: RENDER_CONFIG.compactHeight - 32, label: searchLabel(match) }
+  if (match.matchType === 'amino_acid') {
+    const frameY = new Map([[1, 90], [2, 110], [3, 130], [-1, 216], [-2, 236], [-3, 256]])
+    return { x, width, y: (frameY.get(match.frame!) ?? 90) - 14, height: 18, label: searchLabel(match) }
+  }
+  const y = match.strand === 'Reverse' ? 168 : 142
+  return { x, width, y, height: match.strand === 'Unknown' ? 52 : 22, label: searchLabel(match) }
+}
+
+function searchLabel(match: SequenceSearchMatchDto): string {
+  if (match.frame) return `match frame ${match.frame > 0 ? '+' : ''}${match.frame}`
+  return `match ${match.strand === 'Unknown' ? 'both strands' : match.strand.toLowerCase()}`
+}
+
 export function hitTest(regions: HitRegion[], x: number, y: number): number | undefined {
   return [...regions].reverse().find((region) =>
     x >= region.x && x <= region.x + region.width && y >= region.y && y <= region.y + region.height,
@@ -66,6 +88,7 @@ export function renderGenome(
   context.clearRect(0, 0, viewport.width, height)
   context.fillStyle = '#fff'
   context.fillRect(0, 0, viewport.width, height)
+  if (state.searchMatch) drawSearchHighlight(context, state.searchMatch, viewport)
   drawRuler(context, viewport)
   const visible = featuresForRendering(genome, state)
   const sources = visible.filter((feature) => feature.type.toLowerCase() === 'source')
@@ -78,6 +101,38 @@ export function renderGenome(
   ]
   if (highZoom) drawSequenceAndFrames(context, genome, viewport, state)
   return { hitRegions: hits, height }
+}
+
+function drawSearchHighlight(
+  context: CanvasRenderingContext2D,
+  match: SequenceSearchMatchDto,
+  viewport: GenomeViewport,
+) {
+  if (match.end <= viewport.start || match.start >= viewport.end) return
+  const geometry = searchHighlightGeometry(match, viewport)
+  const left = Math.max(0, geometry.x)
+  const right = Math.min(viewport.width, geometry.x + geometry.width)
+  context.fillStyle = 'rgba(255, 191, 71, .28)'
+  context.fillRect(left, geometry.y, Math.max(1, right - left), geometry.height)
+  context.strokeStyle = '#8a5700'
+  context.lineWidth = 2
+  context.strokeRect(left, geometry.y, Math.max(1, right - left), geometry.height)
+  context.lineWidth = 1
+  context.save()
+  context.beginPath()
+  context.rect(left, geometry.y, Math.max(1, right - left), geometry.height)
+  context.clip()
+  for (let x = left - geometry.height; x < right; x += 10) {
+    context.beginPath()
+    context.moveTo(x, geometry.y + geometry.height)
+    context.lineTo(x + geometry.height, geometry.y)
+    context.stroke()
+  }
+  context.restore()
+  context.fillStyle = '#5f3b00'
+  context.font = 'bold 11px system-ui'
+  context.textAlign = 'left'
+  context.fillText(geometry.label, Math.max(3, left + 3), geometry.y + 12)
 }
 
 function drawRuler(context: CanvasRenderingContext2D, viewport: GenomeViewport) {
