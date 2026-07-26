@@ -11,6 +11,10 @@
 - **Large file is slow:** begin at whole-genome view, close other tabs, and avoid excessive zoom changes.
 - **Browser memory limit:** split exceptionally large multi-record files; all records live locally in browser memory.
 - **Unexpected amino acids, starts, or stops:** check **Genetic code** and the selected CDS `/transl_table`; table 11 is the default and is not inferred from taxonomy.
+- **No visible stop bars:** confirm the Canvas is in the zoomed-out view and that the visible region contains stops under the selected genetic code. Zooming to 1.6 bases per pixel or closer intentionally replaces bars with nucleotide and amino-acid letters.
+- **Dense or merged stop bars:** whole-genome views compress many exact stop positions into limited screen pixels. Bars in the same frame may merge visually at one pixel; zoom in to separate them.
+- **Stop tracks changed with the genetic code:** this is expected when a table reassigns a stop, such as `TGA` in table 4. Both compact and detailed modes always follow the toolbar selection.
+- **Tracks appear delayed during rapid pan or zoom:** stop scans and translation run locally in WASM. Only the newest request is drawn, so an obsolete intermediate viewport may be skipped; pause interaction briefly on very large records.
 - **No search matches:** confirm the correct record and search type, remove accidental FASTA description text that is not on a `>` header line, and check the selected genetic code for peptides. Search is exact and does not tolerate substitutions or gaps.
 - **Too many matches:** short or ambiguous queries can occur thousands of times. Use a longer, more specific sequence; nucleotide searches require at least three bases and peptide searches at least two residues.
 - **Invalid sequence symbol:** digits and punctuation are rejected. Nucleotides accept DNA/RNA plus IUPAC ambiguity symbols; peptides accept the standard one-letter alphabet plus `*`, `X`, `B`, `Z`, and `J`.

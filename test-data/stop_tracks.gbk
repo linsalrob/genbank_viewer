@@ -1,0 +1,62 @@
+LOCUS       STOPTRACK        3006 bp    DNA     linear
+DEFINITION  Deterministic synthetic stop-track renderer fixture.
+ACCESSION   STOPTRACK
+FEATURES             Location/Qualifiers
+     source          1..3006
+                     /organism="synthetic construct"
+     CDS             1..300
+                     /locus_tag="stop_track_cds"
+ORIGIN
+        1 tgataatagcccgtactcgctcttccttttctgatgataactgactgaggtccgtatgcc
+       61 tccccagtagtgggataaatttatcccgtatgatggctgctcccaggtgcaatcaatgag
+      121 acgatagcagggcgcagttcaaatttcatagagtgcaagtgaagccccgtcagcctgcac
+      181 gtatcaaacttcatcttcatgcacagtgctggtaacccagcaccctatcaatgcactgtg
+      241 ctcattggctagttagacgagctgttcgctttaggaccgtggcgatttagatgtcgcaac
+      301 ggaagtttcgctacgatttgtcaggtatttattgagcgaaggttttcgcctagaacattc
+      361 gactcacatagcgccaaattcacggaattctgggcgctggtcgcaatggcgtctatgagg
+      421 taggccatggaccaggcagagtcgcatctatggtaaatatgtttctaatgcgacacaacc
+      481 gatacctcttccaacccttggaaaggattcacatatacctacaggcgatatgtgcgtcca
+      541 cgtcatgatttgctggccccagtcagagaacctagtaagaacatgggtatgcccactaat
+      601 gatcttaacgacgatgaagaagaatttagagactattcaagccttccgtatggcatcatg
+      661 cgagtgagttatgactcagagcgggcgaccatggcttgaggccgggaccaagtaggtcgg
+      721 gggtactcctgcccctcatagcatcgtgcctcgtaacgaggaattcgggcagttacacga
+      781 catgggtaatcttgctatggcgcatgcagcgatcaggggacgacggccctttttgtgtcg
+      841 ttccagcgagtctaaaggtcgttctaaaaatacttgatttactggacaagatgctggcag
+      901 aacccttcaggtttcaccagctacggagtctaccggctgtacacggtgggtcgatgctgg
+      961 gcgtttatggaggtacttcgacatcgcgtgcaacggtgtccttcaacctcggcatatgct
+     1021 ggatcgcactggttgttaacttttcacggaaatggtctgtcaagatgatttaatcgccag
+     1081 aaaaaagactccagtatgaattaccagcagatgctatggacccgtaactgcgccaacctg
+     1141 agcgctatttttcttgagggctaggcgtacttggctcctagaattttaagatatatggga
+     1201 gagccggagcagaatgtatagaaacccgatggcatcgaaggctggtggcccgggactcct
+     1261 tcactctcccccagttctccgaccaggcgcggctcacttcttacggtaactgtaaatttc
+     1321 gtcaattgttttccttctccagttcttacagaccaacatcagtcacgcaacgcgaggctt
+     1381 tgttagattcgaatctgcatcgaagtttcttccgcagaattggcccagggctttccacac
+     1441 acgggtatggctctattatatgcgttgtgtgtaggccgttcacgggggtgacgttgcttg
+     1501 tttgtgaggtaattggagtggtgtaagagatcttgcctgagccgcaagcgggggatcata
+     1561 cagatacaagcgaaagtgccgcaacgtgatgacagatattcggtacgagatctcgggcga
+     1621 tggtggtactgaggtacttgggcagagaagaatacttgcagaccaaatgtggcaggtatc
+     1681 ctcctgtgtacaattcctttagtatcgcgtgaaaaccccgggtacccgttaccaaaggct
+     1741 tgggttacatacacgtgccatgcgatttcactgttgaaccacgcagttggtcgtgtttta
+     1801 tggacttgaccgtgagcaggccagttgtcccgaaatcaagaagttcatggattcatataa
+     1861 ttccggatactgagatagcggtcatatatctgctcccatctaaggcggcgcccggacgta
+     1921 aatccccatttttccgggcgcccggtgcgcataactgttactcgaccatcaagcgttgcc
+     1981 tttatgctcccaatgaatgttttaggcacctttctgcccctgtttattgacttggagttt
+     2041 tacgatcgggttgacctgtccgcaagtatcttggcgacggggtcgccaacagggaaatga
+     2101 ctacttttgggctcgctcaccgggcaagcgtcacgatcaaatcgtatagcgtactagccg
+     2161 ggcccgtccgacgtatcatgttgagacatggttgggagaatacctacgatcaagttggag
+     2221 accacacaatcggagatggtcccctatgaggacattcctcgccaaccgtcagccttcgct
+     2281 tcattgaacgtggcgcagcgactacacgccctgtcgcggtaggctgactcgtgtacatca
+     2341 tactcaacgatgcgtcaattttcctacgcaatacgactgcgaatcaggtgggtccttctc
+     2401 agtcgcagctcctttgatattcaacctccgcttgccatggcgagtctagagtcaactccg
+     2461 gctgcacagacgttgatggaggccggctaggggcccccacggggggtggattcaccgtga
+     2521 ctctcgcctaggccagtaccatcaaataattcggagttgggaacttggtggcccgggctt
+     2581 cttccatatcgtcaagcccgctggtctttggattatccttatccataattgaagggtctt
+     2641 ggatccagaaccccgagattaggctgtagtgtaccgtaaccgacaaccggcgcgccgcag
+     2701 tgaaagacggtttgccccgaaccactttcacaagctgatccatcaccatgccacaagatg
+     2761 ctatatcattaagggtaacctcctcgttatcggtacgatttaagcttcgacgccgctcac
+     2821 cctaacatgagatgctcggactgcgactttactagcagacattgtccttacgtcacttac
+     2881 taattagttagtctgggcctagtactacgcgtatccctgggagtagggtacttacaaacc
+     2941 cttggtatggagtactaagcccgcgattctctgtagcgcacatatcaattagtctcagta
+     3001 aggtac
+//
+

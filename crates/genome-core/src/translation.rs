@@ -315,6 +315,13 @@ pub struct SixFrameTranslation {
     pub codons: Vec<TranslatedCodon>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StopCodon {
+    pub genomic_start: u64,
+    pub genomic_end: u64,
+    pub frame: i8,
+}
+
 pub fn reverse_complement(input: &[u8]) -> Vec<u8> {
     input.iter().rev().map(|base| complement(*base)).collect()
 }
@@ -465,6 +472,82 @@ pub fn translate_region_six_frames(
     })
 }
 
+/// Returns only stop-codon coordinates for the six global reading frames.
+///
+/// Unlike [`translate_region_six_frames`], this does not allocate DTOs for
+/// non-stop codons, which keeps whole-genome overview requests tractable.
+pub fn stop_codons_in_region(
+    sequence: &[u8],
+    region_start: u64,
+    region_end: u64,
+    genetic_code: GeneticCode,
+) -> Result<Vec<StopCodon>, TranslationError> {
+    let len = sequence.len() as u64;
+    if region_start > region_end || region_end > len {
+        return Err(TranslationError::InvalidRegion {
+            start: region_start,
+            end: region_end,
+            sequence_length: len,
+        });
+    }
+    if region_start == region_end || len < 3 {
+        return Ok(Vec::new());
+    }
+
+    let mut stops = Vec::new();
+    for offset in 0..3_u64 {
+        let first_index = region_start.saturating_sub(offset).saturating_sub(2) / 3;
+        let mut start = offset + first_index * 3;
+        while start + 3 <= len && start < region_end {
+            if start + 3 > region_start
+                && codon_to_aa_with_code(
+                    &sequence[start as usize..start as usize + 3],
+                    genetic_code,
+                ) == '*'
+            {
+                stops.push(StopCodon {
+                    genomic_start: start,
+                    genomic_end: start + 3,
+                    frame: offset as i8 + 1,
+                });
+            }
+            start += 3;
+        }
+    }
+
+    let reverse = reverse_complement(sequence);
+    for offset in 0..3_u64 {
+        let reverse_region_start = len - region_end;
+        let first_index = reverse_region_start
+            .saturating_sub(offset)
+            .saturating_sub(2)
+            / 3;
+        let mut rc_start = offset + first_index * 3;
+        while rc_start + 3 <= len {
+            let start = len - (rc_start + 3);
+            let end = len - rc_start;
+            if end <= region_start {
+                break;
+            }
+            if start < region_end
+                && codon_to_aa_with_code(
+                    &reverse[rc_start as usize..rc_start as usize + 3],
+                    genetic_code,
+                ) == '*'
+            {
+                stops.push(StopCodon {
+                    genomic_start: start,
+                    genomic_end: end,
+                    frame: -(offset as i8 + 1),
+                });
+            }
+            rc_start += 3;
+        }
+    }
+    stops.sort_by_key(|stop| (stop.frame, stop.genomic_start));
+    Ok(stops)
+}
+
 fn push_codon(
     output: &mut Vec<TranslatedCodon>,
     source: &[u8],
@@ -580,6 +663,62 @@ mod tests {
                 .codons
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn returns_stop_only_coordinates_in_all_six_frames() {
+        let code = GeneticCode::try_from(1).unwrap();
+        for frame in [-3_i8, -2, -1, 1, 2, 3] {
+            let mut oriented = b"CCCCCCCCCCCCCCC".to_vec();
+            let offset = frame.unsigned_abs() as usize - 1;
+            oriented[offset..offset + 3].copy_from_slice(b"TAA");
+            let sequence = if frame > 0 {
+                oriented
+            } else {
+                reverse_complement(&oriented)
+            };
+            let full =
+                translate_region_six_frames(&sequence, 0, sequence.len() as u64, code).unwrap();
+            let stops = stop_codons_in_region(&sequence, 0, sequence.len() as u64, code).unwrap();
+            let expected = full
+                .codons
+                .into_iter()
+                .filter(|codon| codon.is_stop)
+                .map(|codon| (codon.genomic_start, codon.genomic_end, codon.frame))
+                .collect::<Vec<_>>();
+            let actual = stops
+                .iter()
+                .map(|stop| (stop.genomic_start, stop.genomic_end, stop.frame))
+                .collect::<Vec<_>>();
+            assert_eq!(actual, expected);
+            assert!(stops.iter().any(|stop| stop.frame == frame));
+        }
+    }
+
+    #[test]
+    fn stop_only_regions_handle_boundaries_short_sequences_and_codes() {
+        let code1 = GeneticCode::try_from(1).unwrap();
+        let code4 = GeneticCode::try_from(4).unwrap();
+        assert_eq!(
+            stop_codons_in_region(b"AT", 0, 2, code1).unwrap(),
+            Vec::new()
+        );
+        assert_eq!(
+            stop_codons_in_region(b"TGA", 0, 0, code1).unwrap(),
+            Vec::new()
+        );
+        assert!(stop_codons_in_region(b"TGA", 0, 3, code1)
+            .unwrap()
+            .iter()
+            .any(|stop| stop.frame == 1));
+        assert!(!stop_codons_in_region(b"TGA", 0, 3, code4)
+            .unwrap()
+            .iter()
+            .any(|stop| stop.frame == 1));
+        assert!(stop_codons_in_region(b"CCCTAAGGG", 3, 6, code1)
+            .unwrap()
+            .iter()
+            .all(|stop| stop.genomic_end > 3 && stop.genomic_start < 6));
     }
 
     #[test]

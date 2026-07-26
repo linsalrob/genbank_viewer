@@ -13,7 +13,7 @@ Use the live application at **https://linsalrob.github.io/genbank_viewer/**.
 - local `.gb`, `.gbk`, `.genbank`, and `.gbff` loading, including gzip-compressed files and multiple records;
 - directional, joined CDS tracks with selection and qualifier inspection;
 - cursor-centred zoom, drag/keyboard panning, coordinate jumps, and whole-genome reset;
-- base-resolution forward, reverse-complement, and globally aligned six-frame views;
+- six-frame stop-codon tracks at whole-genome scale and base-resolution forward, reverse-complement, and amino-acid views;
 - local exact nucleotide (both strands, IUPAC-aware) and six-frame peptide searching with match navigation and highlighting;
 - all 27 currently defined NCBI genetic codes, with table 11 as the default and table-specific starts and stops;
 - structured parser warnings and union-based coding density.

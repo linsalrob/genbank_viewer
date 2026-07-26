@@ -1,17 +1,32 @@
-import type { FeatureDto, GenomeRecordDto, SequenceSearchMatchDto, TranslationDto } from './genomeTypes'
+import type { FeatureDto, GenomeRecordDto, SequenceSearchMatchDto, StopCodonDto, TranslationDto } from './genomeTypes'
 import { bpPerPixel, genomeToScreen, type GenomeViewport } from './viewport'
 
 export interface HitRegion { featureId: number; x: number; y: number; width: number; height: number }
 export interface RenderResult { hitRegions: HitRegion[]; height: number }
+export type RenderMode = 'stop_tracks' | 'sequence'
+export type ReadingFrame = 1 | 2 | 3 | -1 | -2 | -3
+export interface FrameRowLayout { frame: ReadingFrame; y: number; height: number }
+export interface ViewerLayout {
+  mode: RenderMode
+  height: number
+  sourceFeatureY: number
+  forwardFeatureY: number
+  reverseFeatureY: number
+  frameRows: FrameRowLayout[]
+  forwardNucleotideY?: number
+  reverseNucleotideY?: number
+}
 export interface RenderState {
   selectedFeatureId?: number
   showLabels: boolean
   showStarts: boolean
   showSourceFeatures: boolean
   searchMatch?: SequenceSearchMatchDto | null
+  stopCodons?: StopCodonDto[]
   translation?: TranslationDto
 }
 
+export const FRAME_ORDER: readonly ReadingFrame[] = [1, 2, 3, -1, -2, -3]
 export const RENDER_CONFIG = {
   margin: 38,
   rulerHeight: 28,
@@ -19,14 +34,37 @@ export const RENDER_CONFIG = {
   rowHeight: 18,
   baseThreshold: 1.6,
   labelMinimumPixels: 50,
-  compactHeight: 140,
+  stopTrackHeight: 224,
   sequenceHeight: 312,
+  stopTrackRowHeight: 18,
+  stopBarWidth: 1.5,
 } as const
 
+export function renderMode(view: GenomeViewport): RenderMode {
+  return bpPerPixel(view) <= RENDER_CONFIG.baseThreshold ? 'sequence' : 'stop_tracks'
+}
+
+export function viewerLayout(view: GenomeViewport): ViewerLayout {
+  if (renderMode(view) === 'sequence') {
+    const baselines = [90, 110, 130, 216, 236, 256]
+    return {
+      mode: 'sequence', height: RENDER_CONFIG.sequenceHeight,
+      sourceFeatureY: 36, forwardFeatureY: 44, reverseFeatureY: 280,
+      frameRows: FRAME_ORDER.map((frame, index) => ({ frame, y: baselines[index] - 14, height: 18 })),
+      forwardNucleotideY: 158, reverseNucleotideY: 184,
+    }
+  }
+  return {
+    mode: 'stop_tracks', height: RENDER_CONFIG.stopTrackHeight,
+    sourceFeatureY: 30, forwardFeatureY: 38, reverseFeatureY: 192,
+    frameRows: FRAME_ORDER.map((frame, index) => ({
+      frame, y: 72 + index * RENDER_CONFIG.stopTrackRowHeight, height: 16,
+    })),
+  }
+}
+
 export function renderHeight(view: GenomeViewport): number {
-  return bpPerPixel(view) <= RENDER_CONFIG.baseThreshold
-    ? RENDER_CONFIG.sequenceHeight
-    : RENDER_CONFIG.compactHeight
+  return viewerLayout(view).height
 }
 
 export function featuresForRendering(genome: GenomeRecordDto, state: RenderState): FeatureDto[] {
@@ -56,14 +94,44 @@ export function searchHighlightGeometry(
 ): { x: number; width: number; y: number; height: number; label: string } {
   const x = genomeToScreen(match.start, view)
   const width = Math.max(2, genomeToScreen(match.end, view) - x)
-  const highZoom = bpPerPixel(view) <= RENDER_CONFIG.baseThreshold
-  if (!highZoom) return { x, width, y: 28, height: RENDER_CONFIG.compactHeight - 32, label: searchLabel(match) }
+  const layout = viewerLayout(view)
+  if (layout.mode === 'stop_tracks') return { x, width, y: 28, height: layout.height - 32, label: searchLabel(match) }
   if (match.matchType === 'amino_acid') {
-    const frameY = new Map([[1, 90], [2, 110], [3, 130], [-1, 216], [-2, 236], [-3, 256]])
-    return { x, width, y: (frameY.get(match.frame!) ?? 90) - 14, height: 18, label: searchLabel(match) }
+    const row = layout.frameRows.find((item) => item.frame === match.frame) ?? layout.frameRows[0]
+    return { x, width, y: row.y, height: row.height, label: searchLabel(match) }
   }
   const y = match.strand === 'Reverse' ? 168 : 142
   return { x, width, y, height: match.strand === 'Unknown' ? 52 : 22, label: searchLabel(match) }
+}
+
+export interface StopBarGeometry { frame: ReadingFrame; x: number; y: number; width: number; height: number }
+const stopGeometryCache = new WeakMap<StopCodonDto[], { key: string; bars: StopBarGeometry[] }>()
+
+export function stopBarGeometries(
+  stops: StopCodonDto[],
+  view: GenomeViewport,
+  layout = viewerLayout(view),
+): StopBarGeometry[] {
+  const key = `${view.start}:${view.end}:${view.width}:${layout.frameRows.map((row) => `${row.frame}:${row.y}:${row.height}`).join(',')}`
+  const cached = stopGeometryCache.get(stops)
+  if (cached?.key === key) return cached.bars
+  const occupiedPixels = new Set<string>()
+  const bars: StopBarGeometry[] = []
+  for (const stop of stops) {
+    if (stop.genomic_end <= view.start || stop.genomic_start >= view.end) continue
+    const row = layout.frameRows.find((item) => item.frame === stop.frame)
+    if (!row) continue
+    const x = genomeToScreen((stop.genomic_start + stop.genomic_end) / 2, view)
+    const pixelKey = `${stop.frame}:${Math.round(x)}`
+    if (occupiedPixels.has(pixelKey)) continue
+    occupiedPixels.add(pixelKey)
+    bars.push({
+      frame: stop.frame, x, y: row.y + 2, width: RENDER_CONFIG.stopBarWidth,
+      height: row.height - 4,
+    })
+  }
+  stopGeometryCache.set(stops, { key, bars })
+  return bars
 }
 
 function searchLabel(match: SequenceSearchMatchDto): string {
@@ -83,8 +151,8 @@ export function renderGenome(
   viewport: GenomeViewport,
   state: RenderState,
 ): RenderResult {
-  const highZoom = bpPerPixel(viewport) <= RENDER_CONFIG.baseThreshold
-  const height = renderHeight(viewport)
+  const layout = viewerLayout(viewport)
+  const height = layout.height
   context.clearRect(0, 0, viewport.width, height)
   context.fillStyle = '#fff'
   context.fillRect(0, 0, viewport.width, height)
@@ -94,13 +162,43 @@ export function renderGenome(
   const sources = visible.filter((feature) => feature.type.toLowerCase() === 'source')
   const annotations = visible.filter((feature) => feature.type.toLowerCase() !== 'source')
   const hits = [
-    ...drawFeatures(context, sources, viewport, state, 36, 1, true),
-    ...drawFeatures(context, sources, viewport, state, 36, -1, true),
-    ...drawFeatures(context, annotations, viewport, state, 44, 1, false),
-    ...drawFeatures(context, annotations, viewport, state, highZoom ? 280 : 96, -1, false),
+    ...drawFeatures(context, sources, viewport, state, layout.sourceFeatureY, 1, true),
+    ...drawFeatures(context, sources, viewport, state, layout.reverseFeatureY, -1, true),
+    ...drawFeatures(context, annotations, viewport, state, layout.forwardFeatureY, 1, false),
+    ...drawFeatures(context, annotations, viewport, state, layout.reverseFeatureY, -1, false),
   ]
-  if (highZoom) drawSequenceAndFrames(context, genome, viewport, state)
+  if (layout.mode === 'sequence') drawSequenceAndFrames(context, genome, viewport, state, layout)
+  else drawStopTracks(context, state.stopCodons ?? [], viewport, layout)
   return { hitRegions: hits, height }
+}
+
+function drawStopTracks(
+  context: CanvasRenderingContext2D,
+  stops: StopCodonDto[],
+  viewport: GenomeViewport,
+  layout: ViewerLayout,
+) {
+  context.font = 'bold 11px ui-monospace, monospace'
+  context.textAlign = 'left'
+  for (const row of layout.frameRows) {
+    context.fillStyle = row.frame > 0 ? 'rgba(228, 237, 244, .38)' : 'rgba(214, 226, 235, .38)'
+    context.fillRect(0, row.y, viewport.width, row.height)
+    context.strokeStyle = '#c0ccd5'
+    context.beginPath()
+    context.moveTo(0, row.y + row.height - .5)
+    context.lineTo(viewport.width, row.y + row.height - .5)
+    context.stroke()
+  }
+  context.fillStyle = '#b31b34'
+  for (const bar of stopBarGeometries(stops, viewport, layout)) {
+    context.fillRect(bar.x - bar.width / 2, bar.y, bar.width, bar.height)
+  }
+  for (const row of layout.frameRows) {
+    context.fillStyle = 'rgba(244, 248, 251, .9)'
+    context.fillRect(0, row.y, 32, row.height)
+    context.fillStyle = '#263849'
+    context.fillText(row.frame > 0 ? `+${row.frame}` : String(row.frame), 7, row.y + 12)
+  }
 }
 
 function drawSearchHighlight(
@@ -247,10 +345,11 @@ function drawSequenceAndFrames(
   genome: GenomeRecordDto,
   viewport: GenomeViewport,
   state: RenderState,
+  layout: ViewerLayout,
 ) {
   context.font = '12px ui-monospace, monospace'
   context.textAlign = 'center'
-  const frameY = new Map([[1, 90], [2, 110], [3, 130], [-1, 216], [-2, 236], [-3, 256]])
+  const frameY = new Map(layout.frameRows.map((row) => [row.frame, row.y + 14]))
   context.fillStyle = '#506276'
   for (const [frame, y] of frameY) context.fillText(frame > 0 ? `+${frame}` : String(frame), 17, y)
   context.fillStyle = '#172433'
@@ -258,8 +357,8 @@ function drawSequenceAndFrames(
   const last = Math.min(genome.sequenceLength, Math.ceil(viewport.end))
   for (let position = first; position < last; position++) {
     const x = genomeToScreen(position + 0.5, viewport)
-    context.fillText(genome.sequence[position], x, 158)
-    context.fillText(genome.reverseComplement[genome.sequenceLength - position - 1], x, 184)
+    context.fillText(genome.sequence[position], x, layout.forwardNucleotideY!)
+    context.fillText(genome.reverseComplement[genome.sequenceLength - position - 1], x, layout.reverseNucleotideY!)
   }
   for (const codon of state.translation?.codons ?? []) {
     const y = frameY.get(codon.frame)

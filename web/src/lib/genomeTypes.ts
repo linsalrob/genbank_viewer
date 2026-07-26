@@ -68,6 +68,12 @@ export interface TranslationDto {
   codons: TranslatedCodonDto[]
 }
 
+export interface StopCodonDto {
+  genomic_start: number
+  genomic_end: number
+  frame: 1 | 2 | 3 | -1 | -2 | -3
+}
+
 export interface GeneticCodeMetadataDto {
   id: number
   short_name: string

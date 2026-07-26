@@ -1,10 +1,12 @@
-import type { BrowserError, GeneticCodeMetadataDto, GenomeRecordDto, SequenceSearchMatchDto, SequenceSearchType, TranslationDto } from './genomeTypes'
-import init, { parse_genbank_json, search_sequence_json, supported_genetic_codes_json, translate_region_json } from './wasm-pkg/genome_wasm'
+import type { BrowserError, GeneticCodeMetadataDto, GenomeRecordDto, SequenceSearchMatchDto, SequenceSearchType, StopCodonDto, TranslationDto } from './genomeTypes'
+import init, { parse_genbank_json, search_sequence_json, stop_codons_in_region_json, supported_genetic_codes_json, translate_region_json } from './wasm-pkg/genome_wasm'
 
 let initialization: Promise<void> | undefined
 const translationCache = new Map<string, TranslationDto>()
+const stopCodonCache = new Map<string, StopCodonDto[]>()
 const CACHE_LIMIT = 24
 const recordIdentities = new WeakMap<GenomeRecordDto, number>()
+const encodedSequences = new WeakMap<GenomeRecordDto, Uint8Array>()
 let nextRecordIdentity = 1
 
 function recordIdentity(record: GenomeRecordDto): number {
@@ -14,6 +16,15 @@ function recordIdentity(record: GenomeRecordDto): number {
     recordIdentities.set(record, identity)
   }
   return identity
+}
+
+function encodedSequence(record: GenomeRecordDto): Uint8Array {
+  let encoded = encodedSequences.get(record)
+  if (!encoded) {
+    encoded = new TextEncoder().encode(record.sequence)
+    encodedSequences.set(record, encoded)
+  }
+  return encoded
 }
 
 function initializeWasm(): Promise<void> {
@@ -49,7 +60,7 @@ export async function searchSequence(
   await initializeWasm()
   try {
     return search_sequence_json(
-      new TextEncoder().encode(record.sequence), query, searchType, geneticCode,
+      encodedSequence(record), query, searchType, geneticCode,
     ) as SequenceSearchMatchDto[]
   } catch (error) {
     throw browserError(error)
@@ -68,8 +79,29 @@ export async function translateRegion(
   const key = `${recordIdentity(record)}:${flankStart}:${flankEnd}:${geneticCode}`
   const cached = translationCache.get(key)
   if (cached) return cached
-  const result = translate_region_json(new TextEncoder().encode(record.sequence), flankStart, flankEnd, geneticCode) as TranslationDto
+  const result = translate_region_json(encodedSequence(record), flankStart, flankEnd, geneticCode) as TranslationDto
   translationCache.set(key, result)
   while (translationCache.size > CACHE_LIMIT) translationCache.delete(translationCache.keys().next().value!)
+  return result
+}
+
+
+export async function stopCodonsInRegion(
+  record: GenomeRecordDto,
+  start: number,
+  end: number,
+  geneticCode: number,
+): Promise<StopCodonDto[]> {
+  await initializeWasm()
+  const regionStart = Math.max(0, Math.floor(start))
+  const regionEnd = Math.min(record.sequenceLength, Math.ceil(end))
+  const key = `${recordIdentity(record)}:${regionStart}:${regionEnd}:${geneticCode}`
+  const cached = stopCodonCache.get(key)
+  if (cached) return cached
+  const result = stop_codons_in_region_json(
+    encodedSequence(record), regionStart, regionEnd, geneticCode,
+  ) as StopCodonDto[]
+  stopCodonCache.set(key, result)
+  while (stopCodonCache.size > CACHE_LIMIT) stopCodonCache.delete(stopCodonCache.keys().next().value!)
   return result
 }
