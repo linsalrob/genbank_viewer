@@ -74,6 +74,18 @@ export interface GeneticCodeMetadataDto {
   description: string
 }
 
+export type SequenceSearchType = 'nucleotide' | 'amino_acid'
+
+export interface SequenceSearchMatchDto {
+  start: number
+  end: number
+  strand: 'Forward' | 'Reverse' | 'Unknown'
+  frame?: 1 | 2 | 3 | -1 | -2 | -3 | null
+  matchType: SequenceSearchType
+  matchedSequence: string
+  geneticCode?: number | null
+}
+
 export interface BrowserError {
   code: string
   message: string
