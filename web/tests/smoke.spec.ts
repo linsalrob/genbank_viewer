@@ -10,9 +10,14 @@ test('loads a local multi-record GenBank file and operates the viewer', async ({
   await expect(page.getByRole('heading', { name: 'FIRST' })).toBeVisible()
   await expect(page.getByText('2 records')).toBeVisible()
   await expect(page.locator('canvas[aria-label^="Genome viewer"]')).toBeVisible()
+  await page.getByRole('textbox', { name: 'Sequence', exact: true }).fill('ATG')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await expect(page.getByText(/match.*nucleotide query/)).toBeVisible()
   await page.getByRole('combobox', { name: 'Genetic code', exact: true }).selectOption('1')
   await page.getByLabel('Record').selectOption('1')
   await expect(page.getByRole('heading', { name: 'SECOND' })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Sequence', exact: true })).toHaveValue('')
+  await expect(page.locator('canvas[aria-label^="Genome viewer"]')).toHaveAttribute('aria-label', /No sequence search match highlighted/)
   await page.locator('canvas[aria-label^="Genome viewer"]').click({ position: { x: 100, y: 40 } })
 
   expect(requests.some((url) => url.includes('/genbank_viewer/assets/') && url.endsWith('.wasm'))).toBe(true)
@@ -44,4 +49,38 @@ test('loads gzip locally and supports source visibility and feature genetic code
   await expect(page.getByLabel('Feature inspector').getByRole('heading', { name: 'source' })).toBeVisible()
   await page.getByLabel('Show source feature').uncheck()
   await expect(page.getByText('Select a feature in the genome view to inspect its annotations.')).toBeVisible()
+})
+
+test('searches nucleotides and six-frame peptides locally and navigates matches', async ({ page }) => {
+  await page.goto('/genbank_viewer/')
+  await page.getByTestId('file-input').setInputFiles(path.resolve('../test-data/simple_linear.gbk.gz'))
+  await expect(page.getByRole('heading', { name: 'SIMPLE1' })).toBeVisible()
+
+  const sequence = page.getByRole('textbox', { name: 'Sequence', exact: true })
+  await sequence.fill('>palindrome\natgc at')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await expect(page.getByText(/29 matches · nucleotide query · 6 bases/)).toBeVisible()
+  await expect(page.getByText('1 of 29')).toBeVisible()
+  await expect(page.locator('canvas[aria-label^="Genome viewer"]')).toHaveAttribute(
+    'aria-label', /Sequence search match 1 through 6 highlighted/,
+  )
+  await expect(page.getByRole('navigation', { name: 'Genome controls' }).locator('output')).toContainText('1..60')
+  await page.getByRole('button', { name: 'Next sequence match' }).click()
+  await expect(page.getByText('2 of 29')).toBeVisible()
+
+  await page.getByRole('combobox', { name: 'Sequence search type' }).selectOption('amino_acid')
+  await sequence.fill('MH')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await expect(page.getByText(/amino acid query · 2 residues · genetic code 11/)).toBeVisible()
+  await expect(page.getByRole('button', { name: /1..6 — frame \+1/ }).first()).toBeVisible()
+  await expect(page.locator('canvas[aria-label^="Genome viewer"]')).toHaveAttribute(
+    'aria-label', /Sequence search match 1 through 6 highlighted/,
+  )
+  await page.getByRole('combobox', { name: 'Genetic code', exact: true }).selectOption('4')
+  await expect(page.getByText(/amino acid query · 2 residues · genetic code 4/)).toBeVisible()
+
+  await page.getByRole('button', { name: 'Clear search' }).click()
+  await expect(page.locator('canvas[aria-label^="Genome viewer"]')).toHaveAttribute(
+    'aria-label', /No sequence search match highlighted/,
+  )
 })
