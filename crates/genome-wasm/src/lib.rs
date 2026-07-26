@@ -1,5 +1,7 @@
 use genome_core::search::{search_amino_acids, search_nucleotides, SearchError};
-use genome_core::translation::{supported_genetic_codes, translate_region_six_frames, GeneticCode};
+use genome_core::translation::{
+    stop_codons_in_region, supported_genetic_codes, translate_region_six_frames, GeneticCode,
+};
 use genome_core::{Feature, GenomeRecord, Location, Qualifier, Strand, Topology};
 use genome_formats::parse_genbank;
 use serde::Serialize;
@@ -94,6 +96,19 @@ pub fn translate_region_json(
 #[wasm_bindgen]
 pub fn supported_genetic_codes_json() -> Result<JsValue, JsValue> {
     serialize(&supported_genetic_codes())
+}
+
+#[wasm_bindgen]
+pub fn stop_codons_in_region_json(
+    sequence: &[u8],
+    start: u32,
+    end: u32,
+    genetic_code: u8,
+) -> Result<JsValue, JsValue> {
+    let code = GeneticCode::try_from(genetic_code).map_err(translation_error)?;
+    let result = stop_codons_in_region(sequence, start.into(), end.into(), code)
+        .map_err(translation_error)?;
+    serialize(&result)
 }
 
 #[wasm_bindgen]
