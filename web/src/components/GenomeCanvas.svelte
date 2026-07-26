@@ -1,9 +1,9 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte'
-  import type { FeatureDto, GenomeRecordDto, SequenceSearchMatchDto, TranslationDto } from '../lib/genomeTypes'
-  import { hitTest, renderGenome, renderHeight, type HitRegion } from '../lib/renderer'
+  import type { FeatureDto, GenomeRecordDto, SequenceSearchMatchDto, StopCodonDto, TranslationDto } from '../lib/genomeTypes'
+  import { hitTest, renderGenome, renderHeight, renderMode, type HitRegion } from '../lib/renderer'
   import { bindInteractions } from '../lib/interactions'
-  import { translateRegion } from '../lib/wasm'
+  import { stopCodonsInRegion, translateRegion } from '../lib/wasm'
   import type { GenomeViewport } from '../lib/viewport'
 
   export let genome: GenomeRecordDto
@@ -17,8 +17,11 @@
   const dispatch = createEventDispatcher<{ viewport: GenomeViewport; select: FeatureDto | null }>()
   let canvas: HTMLCanvasElement
   let translation: TranslationDto | undefined
+  let stopCodons: StopCodonDto[] = []
   let hits: HitRegion[] = []
   let frame = 0
+  let translationRequest = 0
+  let renderDataCode = geneticCode
   let tooltip: { x: number; y: number; feature: FeatureDto } | null = null
 
   function queueDraw() {
@@ -34,12 +37,31 @@
     canvas.height = Math.round(cssHeight * ratio)
     canvas.style.height = `${cssHeight}px`
     context.setTransform(ratio, 0, 0, ratio, 0, 0)
-    hits = renderGenome(context, genome, viewport, {
-      selectedFeatureId: selectedFeature?.id, showLabels, showStarts, showSourceFeatures, searchMatch, translation,
-    }).hitRegions
+    const result = renderGenome(context, genome, viewport, {
+      selectedFeatureId: selectedFeature?.id, showLabels, showStarts, showSourceFeatures,
+      searchMatch, stopCodons, translation,
+    })
+    hits = result.hitRegions
+    canvas.dataset.renderMode = renderMode(viewport)
+    canvas.dataset.stopCount = String(renderMode(viewport) === 'stop_tracks' ? stopCodons.length : 0)
+    canvas.dataset.translatedCodonCount = String(renderMode(viewport) === 'sequence' ? (translation?.codons.length ?? 0) : 0)
+    canvas.dataset.renderDataCode = String(renderDataCode)
   }
-  async function updateTranslation() {
-    translation = await translateRegion(genome, viewport.start, viewport.end, geneticCode)
+  async function updateRenderData() {
+    const request = ++translationRequest
+    const mode = renderMode(viewport)
+    const data = mode === 'sequence'
+      ? await translateRegion(genome, viewport.start, viewport.end, geneticCode)
+      : await stopCodonsInRegion(genome, viewport.start, viewport.end, geneticCode)
+    if (request !== translationRequest || mode !== renderMode(viewport)) return
+    if (mode === 'sequence') {
+      translation = data as TranslationDto
+      stopCodons = []
+    } else {
+      stopCodons = data as StopCodonDto[]
+      translation = undefined
+    }
+    renderDataCode = geneticCode
     queueDraw()
   }
   function setViewport(next: GenomeViewport) {
@@ -62,7 +84,7 @@
     tooltip = feature ? { ...point, feature } : null
   }
 
-  $: if (canvas && genome && viewport && geneticCode) updateTranslation()
+  $: if (canvas && genome && viewport && geneticCode) updateRenderData()
   $: if (canvas && showSourceFeatures !== undefined && searchMatch !== undefined) queueDraw()
 
   onMount(() => {
@@ -82,7 +104,7 @@
   <canvas
     bind:this={canvas}
     tabindex="0"
-    aria-label={`Genome viewer for ${genome.id}. ${genome.features.length} parsed features. Source features are ${showSourceFeatures ? 'visible' : 'hidden'}. Genetic code ${geneticCode}. ${searchMatch ? `Sequence search match ${searchMatch.start + 1} through ${searchMatch.end} highlighted.` : 'No sequence search match highlighted.'} Use arrows to pan, plus and minus to zoom, Home for the whole genome.`}
+    aria-label={`Genome viewer for ${genome.id}. ${genome.features.length} parsed features. Source features are ${showSourceFeatures ? 'visible' : 'hidden'}. Genetic code ${geneticCode}. ${renderMode(viewport) === 'stop_tracks' ? 'Zoomed-out view shows stop codons as vertical bars in six reading-frame tracks.' : 'Zoomed-in view shows nucleotide and amino-acid sequences in six reading frames.'} ${searchMatch ? `Sequence search match ${searchMatch.start + 1} through ${searchMatch.end} highlighted.` : 'No sequence search match highlighted.'} Use arrows to pan, plus and minus to zoom, Home for the whole genome.`}
     on:click={click}
     on:mousemove={hover}
     on:mouseleave={() => tooltip = null}
