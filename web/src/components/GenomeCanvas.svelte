@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte'
-  import type { FeatureDto, GenomeRecordDto, TranslationDto } from '../lib/genomeTypes'
+  import type { FeatureDto, GenomeRecordDto, SequenceSearchMatchDto, TranslationDto } from '../lib/genomeTypes'
   import { hitTest, renderGenome, renderHeight, type HitRegion } from '../lib/renderer'
   import { bindInteractions } from '../lib/interactions'
   import { translateRegion } from '../lib/wasm'
@@ -13,6 +13,7 @@
   export let showStarts = true
   export let showSourceFeatures = false
   export let selectedFeature: FeatureDto | null = null
+  export let searchMatch: SequenceSearchMatchDto | null = null
   const dispatch = createEventDispatcher<{ viewport: GenomeViewport; select: FeatureDto | null }>()
   let canvas: HTMLCanvasElement
   let translation: TranslationDto | undefined
@@ -34,7 +35,7 @@
     canvas.style.height = `${cssHeight}px`
     context.setTransform(ratio, 0, 0, ratio, 0, 0)
     hits = renderGenome(context, genome, viewport, {
-      selectedFeatureId: selectedFeature?.id, showLabels, showStarts, showSourceFeatures, translation,
+      selectedFeatureId: selectedFeature?.id, showLabels, showStarts, showSourceFeatures, searchMatch, translation,
     }).hitRegions
   }
   async function updateTranslation() {
@@ -62,7 +63,7 @@
   }
 
   $: if (canvas && genome && viewport && geneticCode) updateTranslation()
-  $: if (canvas && showSourceFeatures !== undefined) queueDraw()
+  $: if (canvas && showSourceFeatures !== undefined && searchMatch !== undefined) queueDraw()
 
   onMount(() => {
     const observer = new ResizeObserver(([entry]) => {
@@ -81,7 +82,7 @@
   <canvas
     bind:this={canvas}
     tabindex="0"
-    aria-label={`Genome viewer for ${genome.id}. ${genome.features.length} parsed features. Source features are ${showSourceFeatures ? 'visible' : 'hidden'}. Genetic code ${geneticCode}. Use arrows to pan, plus and minus to zoom, Home for the whole genome.`}
+    aria-label={`Genome viewer for ${genome.id}. ${genome.features.length} parsed features. Source features are ${showSourceFeatures ? 'visible' : 'hidden'}. Genetic code ${geneticCode}. ${searchMatch ? `Sequence search match ${searchMatch.start + 1} through ${searchMatch.end} highlighted.` : 'No sequence search match highlighted.'} Use arrows to pan, plus and minus to zoom, Home for the whole genome.`}
     on:click={click}
     on:mousemove={hover}
     on:mouseleave={() => tooltip = null}
