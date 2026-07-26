@@ -20,6 +20,9 @@
 - **Invalid sequence symbol:** digits and punctuation are rejected. Nucleotides accept DNA/RNA plus IUPAC ambiguity symbols; peptides accept the standard one-letter alphabet plus `*`, `X`, `B`, `Z`, and `J`.
 - **Unexpected ambiguous-base match:** query and record IUPAC symbols match when their possible-base sets intersect, so an ambiguous record base can match more than one query symbol.
 - **Peptide differs between searches:** peptide search uses the toolbar's genetic code. Changing it reruns the current peptide query; table-specific codon and stop assignments can alter results.
+- **Highlight appears in a different peptide frame than expected:** compare the signed frame in the selected result with the left-hand row label. `+` frames translate the reference and `-` frames translate the reverse complement; Previous/Next can move between frames.
+- **Nucleotide highlight is on the reverse lane:** a reverse result means the reverse complement of the query matches that forward-reference interval. Coordinates still use the forward reference.
+- **Highlight looks different after zooming:** this is intentional. Low zoom targets one peptide frame or an `F nt`/`R nt` lane; high zoom targets the actual amino-acid or nucleotide letter row. The interval and selected result do not change.
 - **Stale WASM:** remove `web/src/lib/wasm-pkg` and run `npm run build:wasm`.
 - **WASM 404 on GitHub Pages:** run `npm run build`, confirm `web/dist/index.html` points to `/genbank_viewer/assets/`, and confirm a `.wasm` file exists beneath `web/dist/assets`.
 - **WASM MIME or initialisation error:** open browser Developer Tools, filter the Network panel for `wasm`, and verify the request returns the binary with a successful status rather than a 404 or HTML document. Check Console for fetch, MIME-type, compilation, or initialisation details.

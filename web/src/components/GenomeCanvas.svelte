@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte'
   import type { FeatureDto, GenomeRecordDto, SequenceSearchMatchDto, StopCodonDto, TranslationDto } from '../lib/genomeTypes'
-  import { hitTest, renderGenome, renderHeight, renderMode, type HitRegion } from '../lib/renderer'
+  import { hitTest, renderGenome, renderHeight, renderMode, searchHighlightGeometries, type HitRegion } from '../lib/renderer'
   import { bindInteractions } from '../lib/interactions'
   import { stopCodonsInRegion, translateRegion } from '../lib/wasm'
   import type { GenomeViewport } from '../lib/viewport'
@@ -46,6 +46,13 @@
     canvas.dataset.stopCount = String(renderMode(viewport) === 'stop_tracks' ? stopCodons.length : 0)
     canvas.dataset.translatedCodonCount = String(renderMode(viewport) === 'sequence' ? (translation?.codons.length ?? 0) : 0)
     canvas.dataset.renderDataCode = String(renderDataCode)
+    const highlight = searchMatch ? searchHighlightGeometries(searchMatch, viewport) : []
+    canvas.dataset.searchHighlightMode = searchMatch ? renderMode(viewport) : 'none'
+    canvas.dataset.searchHighlightTargets = highlight.map((geometry) =>
+      geometry.target.kind === 'frame'
+        ? `frame:${geometry.target.frame > 0 ? '+' : ''}${geometry.target.frame}`
+        : `nucleotide:${geometry.target.strand}`
+    ).join(',')
   }
   async function updateRenderData() {
     const request = ++translationRequest
@@ -83,9 +90,23 @@
     const feature = genome.features.find((item) => item.id === id)
     tooltip = feature ? { ...point, feature } : null
   }
+  function describeSearchMatch(match: SequenceSearchMatchDto | null, currentViewport: GenomeViewport) {
+    if (!match) return 'No sequence search match highlighted.'
+    const interval = `Sequence search match ${match.start + 1} through ${match.end} highlighted.`
+    if (renderMode(currentViewport) === 'sequence') {
+      return `${interval} The matched nucleotide or amino-acid sequence is highlighted directly in its detailed row.`
+    }
+    if (match.matchType === 'amino_acid') {
+      return `${interval} The peptide match highlights only reading frame ${match.frame! > 0 ? '+' : ''}${match.frame}.`
+    }
+    return `${interval} ${match.strand === 'Unknown'
+      ? 'The nucleotide match highlights both forward and reverse strand lanes.'
+      : `The nucleotide match highlights only the ${match.strand.toLowerCase()} strand lane.`}`
+  }
 
   $: if (canvas && genome && viewport && geneticCode) updateRenderData()
   $: if (canvas && showSourceFeatures !== undefined && searchMatch !== undefined) queueDraw()
+  $: searchDescription = describeSearchMatch(searchMatch, viewport)
 
   onMount(() => {
     const observer = new ResizeObserver(([entry]) => {
@@ -104,7 +125,7 @@
   <canvas
     bind:this={canvas}
     tabindex="0"
-    aria-label={`Genome viewer for ${genome.id}. ${genome.features.length} parsed features. Source features are ${showSourceFeatures ? 'visible' : 'hidden'}. Genetic code ${geneticCode}. ${renderMode(viewport) === 'stop_tracks' ? 'Zoomed-out view shows stop codons as vertical bars in six reading-frame tracks.' : 'Zoomed-in view shows nucleotide and amino-acid sequences in six reading frames.'} ${searchMatch ? `Sequence search match ${searchMatch.start + 1} through ${searchMatch.end} highlighted.` : 'No sequence search match highlighted.'} Use arrows to pan, plus and minus to zoom, Home for the whole genome.`}
+    aria-label={`Genome viewer for ${genome.id}. ${genome.features.length} parsed features. Source features are ${showSourceFeatures ? 'visible' : 'hidden'}. Genetic code ${geneticCode}. ${renderMode(viewport) === 'stop_tracks' ? 'Zoomed-out view shows stop codons as vertical bars in six reading-frame tracks.' : 'Zoomed-in view shows nucleotide and amino-acid sequences in six reading frames.'} ${searchDescription} Use arrows to pan, plus and minus to zoom, Home for the whole genome.`}
     on:click={click}
     on:mousemove={hover}
     on:mouseleave={() => tooltip = null}

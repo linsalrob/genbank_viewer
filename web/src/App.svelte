@@ -193,7 +193,7 @@
       <section aria-label="Genome canvas region">
         <GenomeCanvas {genome} bind:viewport {geneticCode} {showLabels} {showStarts} {showSourceFeatures} selectedFeature={selected} {searchMatch}
           on:viewport={(event) => viewport = event.detail} on:select={(event) => selected = event.detail} />
-        <p class="canvas-alt">Visible range {Math.floor(viewport.start + 1)}..{Math.ceil(viewport.end)}. Source features are {showSourceFeatures ? 'visible' : 'hidden'}. Genetic code {geneticCode}.{searchMatch ? ` Sequence-search match highlighted at ${searchMatch.start + 1}..${searchMatch.end}.` : ''} Forward CDSs point right; reverse CDSs point left. Zoomed-out view: vertical bars mark stop codons in each of six reading frames. Zoomed-in view: nucleotide and amino-acid letters are shown, with stops marked “*”.</p>
+        <p class="canvas-alt">Visible range {Math.floor(viewport.start + 1)}..{Math.ceil(viewport.end)}. Source features are {showSourceFeatures ? 'visible' : 'hidden'}. Genetic code {geneticCode}.{searchMatch ? ` Sequence-search match highlighted at ${searchMatch.start + 1}..${searchMatch.end}.` : ''} Forward CDSs point right; reverse CDSs point left. Zoomed-out view: vertical bars mark stop codons in each of six reading frames. At low zoom, peptide matches highlight their reading frame and nucleotide matches highlight a forward or reverse strand lane. At high zoom, the matched sequence is highlighted directly.</p>
       </section>
       <section aria-label="Feature inspector region">
         <FeatureInspector feature={selected} {geneticCode} supportedCodes={geneticCodes} on:usecode={(event) => useFeatureCode(event.detail)} />
