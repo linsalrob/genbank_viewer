@@ -14,6 +14,7 @@ Use the live application at **https://linsalrob.github.io/genbank_viewer/**.
 - directional, joined CDS tracks with selection and qualifier inspection;
 - cursor-centred zoom, drag/keyboard panning, coordinate jumps, and whole-genome reset;
 - base-resolution forward, reverse-complement, and globally aligned six-frame views;
+- local exact nucleotide (both strands, IUPAC-aware) and six-frame peptide searching with match navigation and highlighting;
 - all 27 currently defined NCBI genetic codes, with table 11 as the default and table-specific starts and stops;
 - structured parser warnings and union-based coding density.
 
@@ -39,7 +40,7 @@ Open the displayed local URL, choose a GenBank file, select a record, click a CD
 
 The Pages workflow builds and deploys `web/dist` after every push to `main`, and can also be started manually. It installs Rust, the `wasm32-unknown-unknown` target, `wasm-pack`, and Node.js; runs Rust and frontend checks; builds the site with Vite's `/genbank_viewer/` base; asserts that the HTML and WASM assets exist; runs a browser smoke test against the production build; and deploys the artifact with GitHub's official Pages actions.
 
-`npm run build` first compiles `crates/genome-wasm` with `wasm-pack` into `web/src/lib/wasm-pkg`, then Vite bundles its ES-module loader and `.wasm` binary into `web/dist`. The browser reads selected files through the File API, decompresses gzip locally when needed, and passes plain text directly to `parse_genbank_json`; no sequence data is sent to a server.
+`npm run build` first compiles `crates/genome-wasm` with `wasm-pack` into `web/src/lib/wasm-pkg`, then Vite bundles its ES-module loader and `.wasm` binary into `web/dist`. The browser reads selected files through the File API, decompresses gzip locally when needed, and passes plain text directly to `parse_genbank_json`. Exact nucleotide and six-frame peptide searches also run in Rust/WASM; no file or query sequence is sent to a server.
 
 Reproduce the Pages build and preview locally:
 
@@ -58,7 +59,7 @@ If WASM fails to initialise, confirm that `web/dist` contains a `.wasm` file and
 
 ## Repository layout
 
-- [`crates/genome-core`](crates/genome-core): biological models, coordinates, translation, coding statistics
+- [`crates/genome-core`](crates/genome-core): biological models, coordinates, translation, exact sequence search, coding statistics
 - [`crates/genome-formats`](crates/genome-formats): GenBank parsing
 - [`crates/genome-wasm`](crates/genome-wasm): thin browser DTO adapters
 - [`web`](web): Svelte UI, viewport, interactions, and Canvas rendering

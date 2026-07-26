@@ -11,6 +11,11 @@
 - **Large file is slow:** begin at whole-genome view, close other tabs, and avoid excessive zoom changes.
 - **Browser memory limit:** split exceptionally large multi-record files; all records live locally in browser memory.
 - **Unexpected amino acids, starts, or stops:** check **Genetic code** and the selected CDS `/transl_table`; table 11 is the default and is not inferred from taxonomy.
+- **No search matches:** confirm the correct record and search type, remove accidental FASTA description text that is not on a `>` header line, and check the selected genetic code for peptides. Search is exact and does not tolerate substitutions or gaps.
+- **Too many matches:** short or ambiguous queries can occur thousands of times. Use a longer, more specific sequence; nucleotide searches require at least three bases and peptide searches at least two residues.
+- **Invalid sequence symbol:** digits and punctuation are rejected. Nucleotides accept DNA/RNA plus IUPAC ambiguity symbols; peptides accept the standard one-letter alphabet plus `*`, `X`, `B`, `Z`, and `J`.
+- **Unexpected ambiguous-base match:** query and record IUPAC symbols match when their possible-base sets intersect, so an ambiguous record base can match more than one query symbol.
+- **Peptide differs between searches:** peptide search uses the toolbar's genetic code. Changing it reruns the current peptide query; table-specific codon and stop assignments can alter results.
 - **Stale WASM:** remove `web/src/lib/wasm-pkg` and run `npm run build:wasm`.
 - **WASM 404 on GitHub Pages:** run `npm run build`, confirm `web/dist/index.html` points to `/genbank_viewer/assets/`, and confirm a `.wasm` file exists beneath `web/dist/assets`.
 - **WASM MIME or initialisation error:** open browser Developer Tools, filter the Network panel for `wasm`, and verify the request returns the binary with a successful status rather than a 404 or HTML document. Check Console for fetch, MIME-type, compilation, or initialisation details.

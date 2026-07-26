@@ -24,6 +24,20 @@
 
 Alternative nuclear tables 27, 28, and 31 include codons whose stop-versus-amino-acid meaning can depend on biological context. The viewer follows NCBI's conventional table row for bare-codon display; it does not model organism-specific termination context.
 
+## Searching by nucleotide or amino-acid sequence
+
+Open a record, then use **Sequence search** above the genome Canvas. Choose **Nucleotide** or **Amino acid**, paste a sequence, and press **Search**. A textarea accepts FASTA headers and wrapped sequences; press Ctrl+Enter or Cmd+Enter to search from the keyboard. Whitespace and header lines beginning with `>` are removed, letters are uppercased, and RNA `U` is treated as DNA `T`. Other punctuation and digits produce an explicit validation error.
+
+Nucleotide searches examine the forward reference and the reverse complement. IUPAC symbols `RYSWKMBDHVN` are supported in both query and record: positions match when their possible-base sets overlap. Palindromic or otherwise identical forward/reverse hits are reported once as **both strands**. Queries must contain at least three bases.
+
+Amino-acid searches translate all six genomic frames with the genetic code currently selected in the toolbar. Results identify frames `+1` through `+3` or `-1` through `-3`, and their coordinates span all codons encoding the peptide. `X` matches any translated residue except a stop; `B` matches D/N, `Z` matches E/Q, `J` matches I/L, and `*` matches a stop exactly. Peptide queries must contain at least two residues. Changing the genetic code automatically repeats a current peptide search because codon interpretation can change.
+
+Result coordinates are one-based and inclusive even though the application uses zero-based, half-open intervals internally. The first hit is selected automatically. Use **Previous**, **Next**, or a result row to centre it with flanking context; navigation wraps at either end. A hatched, labelled band marks the interval without changing feature selection or hit testing. **Clear search** removes the query, results, and highlight. Loading another file or record also clears them.
+
+Searching is exact: there are no mismatches, gaps, alignments, regular expressions, or protein-domain searches. All normalization, six-frame translation, matching, navigation data, and highlighting remain inside the browser; query and record sequences are never uploaded.
+
+![Nucleotide sequence search with a selected, highlighted result](assets/sequence-search.png)
+
 ![Whole-genome screenshot placeholder](assets/genbank-viewer-placeholder.svg)
 
 To regenerate screenshots, run the development server, load `test-data/two_records.gbk`, capture whole-genome and base-resolution views at 1440 px width, and replace the named placeholder while keeping useful alternative text.
