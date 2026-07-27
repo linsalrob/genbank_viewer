@@ -1,4 +1,5 @@
 import type { FeatureDto, GenomeRecordDto, SequenceSearchMatchDto, StopCodonDto, TranslationDto } from './genomeTypes'
+import { classifyFeatureType, displayFeatureLabel, type FeatureGroupId } from './featureGroups'
 import { bpPerPixel, genomeToScreen, type GenomeViewport } from './viewport'
 
 export interface HitRegion { featureId: number; x: number; y: number; width: number; height: number }
@@ -8,12 +9,20 @@ export type ReadingFrame = 1 | 2 | 3 | -1 | -2 | -3
 export type NucleotideStrand = 'forward' | 'reverse'
 export interface FrameRowLayout { frame: ReadingFrame; y: number; height: number }
 export interface NucleotideRowLayout { strand: NucleotideStrand; y: number; height: number; textBaseline?: number }
+export interface TrackRow {
+  id: string
+  label: string
+  group: FeatureGroupId | 'frame' | 'search'
+  strand?: 1 | -1 | 0
+  lane?: number
+  y: number
+  height: number
+  visible: boolean
+}
 export interface ViewerLayout {
   mode: RenderMode
   height: number
-  sourceFeatureY: number
-  forwardFeatureY: number
-  reverseFeatureY: number
+  trackRows: TrackRow[]
   frameRows: FrameRowLayout[]
   nucleotideRows: NucleotideRowLayout[]
 }
@@ -21,7 +30,7 @@ export interface RenderState {
   selectedFeatureId?: number
   showLabels: boolean
   showStarts: boolean
-  showSourceFeatures: boolean
+  visibleGroups: Set<FeatureGroupId>
   searchMatch?: SequenceSearchMatchDto | null
   stopCodons?: StopCodonDto[]
   translation?: TranslationDto
@@ -39,36 +48,85 @@ export const RENDER_CONFIG = {
   sequenceHeight: 312,
   stopTrackRowHeight: 18,
   stopBarWidth: 1.5,
+  trackHeight: 18,
+  trackGap: 3,
+  maximumFeatureLanes: 3,
+  labelGutter: 62,
 } as const
 
 export function renderMode(view: GenomeViewport): RenderMode {
   return bpPerPixel(view) <= RENDER_CONFIG.baseThreshold ? 'sequence' : 'stop_tracks'
 }
 
-export function viewerLayout(view: GenomeViewport): ViewerLayout {
-  if (renderMode(view) === 'sequence') {
-    const baselines = [90, 110, 130, 216, 236, 256]
-    return {
-      mode: 'sequence', height: RENDER_CONFIG.sequenceHeight,
-      sourceFeatureY: 36, forwardFeatureY: 44, reverseFeatureY: 280,
-      frameRows: FRAME_ORDER.map((frame, index) => ({ frame, y: baselines[index] - 14, height: 18 })),
-      nucleotideRows: [
-        { strand: 'forward', y: 142, height: 22, textBaseline: 158 },
-        { strand: 'reverse', y: 168, height: 22, textBaseline: 184 },
-      ],
+export interface ViewerLayoutOptions { features?: FeatureDto[] }
+
+export function packFeatureLanes(features: FeatureDto[], maximumLanes = RENDER_CONFIG.maximumFeatureLanes): Map<number, number> {
+  const sorted = [...features].sort((a, b) => a.start - b.start || b.end - a.end || a.id - b.id)
+  const laneEnds: number[] = []
+  const assignments = new Map<number, number>()
+  for (const feature of sorted) {
+    let lane = laneEnds.findIndex((end) => end <= feature.start)
+    if (lane < 0 && laneEnds.length < maximumLanes) lane = laneEnds.length
+    if (lane < 0) lane = laneEnds.indexOf(Math.min(...laneEnds))
+    laneEnds[lane] = Math.max(laneEnds[lane] ?? 0, feature.end)
+    assignments.set(feature.id, lane)
+  }
+  return assignments
+}
+
+function groupLaneCount(features: FeatureDto[], group: FeatureGroupId, strand: 1 | -1 | 0): number {
+  const matching = features.filter((feature) => classifyFeatureType(feature.type) === group
+    && (strand === 0 || feature.strand === strand || (feature.strand === 0 && strand === 1)))
+  if (!matching.length) return 1
+  return Math.max(1, ...packFeatureLanes(matching).values()) + 1
+}
+
+export function buildViewerLayout(
+  view: GenomeViewport,
+  visibleGroups: Set<FeatureGroupId> = new Set(['genes', 'rna']),
+  options: ViewerLayoutOptions = {},
+): ViewerLayout {
+  const mode = renderMode(view)
+  const features = options.features ?? []
+  const trackRows: TrackRow[] = []
+  let y = 32
+  const addGroupRows = (group: FeatureGroupId, label: string, strand: 1 | -1 | 0) => {
+    if (!visibleGroups.has(group)) return
+    const lanes = groupLaneCount(features, group, strand)
+    for (let lane = 0; lane < lanes; lane++) {
+      trackRows.push({ id: `${group}:${strand}:${lane}`, label: lane ? '' : label, group, strand, lane, y, height: RENDER_CONFIG.trackHeight, visible: true })
+      y += RENDER_CONFIG.trackHeight + RENDER_CONFIG.trackGap
     }
   }
-  return {
-    mode: 'stop_tracks', height: RENDER_CONFIG.stopTrackHeight,
-    sourceFeatureY: 30, forwardFeatureY: 38, reverseFeatureY: 192,
-    frameRows: FRAME_ORDER.map((frame, index) => ({
-      frame, y: 72 + index * RENDER_CONFIG.stopTrackRowHeight, height: 16,
-    })),
-    nucleotideRows: [
-      { strand: 'forward', y: 62, height: 8 },
-      { strand: 'reverse', y: 180, height: 10 },
-    ],
-  }
+  addGroupRows('regional', 'Regions', 0)
+  addGroupRows('genes', 'Genes +', 1)
+  addGroupRows('rna', 'RNAs +', 1)
+  addGroupRows('protein_processing', 'Processing +', 1)
+  addGroupRows('other', 'Other +', 1)
+  const forwardNucleotide: NucleotideRowLayout = mode === 'sequence'
+    ? { strand: 'forward', y, height: 22, textBaseline: y + 16 }
+    : { strand: 'forward', y, height: 9 }
+  y += forwardNucleotide.height + 3
+  const positiveRows = ([1, 2, 3] as ReadingFrame[]).map((frame) => {
+    const row = { frame, y, height: mode === 'sequence' ? 18 : 16 }; y += row.height + 2; return row
+  })
+  const reverseNucleotide: NucleotideRowLayout = mode === 'sequence'
+    ? { strand: 'reverse', y, height: 22, textBaseline: y + 16 }
+    : { strand: 'reverse', y, height: 9 }
+  y += reverseNucleotide.height + 3
+  const negativeRows = ([-1, -2, -3] as ReadingFrame[]).map((frame) => {
+    const row = { frame, y, height: mode === 'sequence' ? 18 : 16 }; y += row.height + 2; return row
+  })
+  addGroupRows('other', 'Other −', -1)
+  addGroupRows('protein_processing', 'Processing −', -1)
+  addGroupRows('rna', 'RNAs −', -1)
+  addGroupRows('genes', 'Genes −', -1)
+  addGroupRows('assembly_variation', 'Assembly', 0)
+  return { mode, height: y + 8, trackRows, frameRows: [...positiveRows, ...negativeRows], nucleotideRows: [forwardNucleotide, reverseNucleotide] }
+}
+
+export function viewerLayout(view: GenomeViewport): ViewerLayout {
+  return buildViewerLayout(view)
 }
 
 export function frameRowFor(layout: ViewerLayout, frame: ReadingFrame): FrameRowLayout {
@@ -82,14 +140,12 @@ export function nucleotideRowFor(
   return layout.nucleotideRows.find((row) => row.strand === strand) ?? layout.nucleotideRows[0]
 }
 
-export function renderHeight(view: GenomeViewport): number {
-  return viewerLayout(view).height
+export function renderHeight(view: GenomeViewport, visibleGroups?: Set<FeatureGroupId>, features?: FeatureDto[]): number {
+  return buildViewerLayout(view, visibleGroups, { features }).height
 }
 
 export function featuresForRendering(genome: GenomeRecordDto, state: RenderState): FeatureDto[] {
-  return genome.features.filter(
-    (feature) => state.showSourceFeatures || feature.type.toLowerCase() !== 'source',
-  )
+  return genome.features.filter((feature) => state.visibleGroups.has(classifyFeatureType(feature.type)))
 }
 
 export function rulerStep(basesPerPixel: number, minimumPixels = 70): number {
@@ -193,27 +249,28 @@ export function renderGenome(
   viewport: GenomeViewport,
   state: RenderState,
 ): RenderResult {
-  const layout = viewerLayout(viewport)
+  const layout = buildViewerLayout(viewport, state.visibleGroups, { features: genome.features })
   const height = layout.height
   context.clearRect(0, 0, viewport.width, height)
   context.fillStyle = '#fff'
   context.fillRect(0, 0, viewport.width, height)
+  drawTrackBackgrounds(context, viewport, layout)
   if (layout.mode === 'stop_tracks') drawStopTrackBackgrounds(context, viewport, layout)
   if (state.searchMatch) drawSearchHighlightBackground(context, state.searchMatch, viewport, layout)
   drawRuler(context, viewport)
   const visible = featuresForRendering(genome, state)
-  const sources = visible.filter((feature) => feature.type.toLowerCase() === 'source')
-  const annotations = visible.filter((feature) => feature.type.toLowerCase() !== 'source')
-  const hits = [
-    ...drawFeatures(context, sources, viewport, state, layout.sourceFeatureY, 1, true),
-    ...drawFeatures(context, sources, viewport, state, layout.reverseFeatureY, -1, true),
-    ...drawFeatures(context, annotations, viewport, state, layout.forwardFeatureY, 1, false),
-    ...drawFeatures(context, annotations, viewport, state, layout.reverseFeatureY, -1, false),
-  ]
+  const hits = drawGroupedFeatures(context, visible, viewport, state, layout)
   if (layout.mode === 'sequence') drawSequenceAndFrames(context, genome, viewport, state, layout)
   else drawStopTrackContent(context, state.stopCodons ?? [], viewport, layout)
   if (state.searchMatch) drawSearchHighlightForeground(context, state.searchMatch, viewport, layout)
   return { hitRegions: hits, height }
+}
+
+function drawTrackBackgrounds(context: CanvasRenderingContext2D, viewport: GenomeViewport, layout: ViewerLayout) {
+  for (const row of layout.trackRows) {
+    context.fillStyle = row.group === 'regional' || row.group === 'assembly_variation' ? 'rgba(220, 226, 232, .28)' : 'rgba(248, 250, 252, .7)'
+    context.fillRect(0, row.y, viewport.width, row.height)
+  }
 }
 
 function drawStopTrackBackgrounds(
@@ -343,38 +400,57 @@ function drawRuler(context: CanvasRenderingContext2D, viewport: GenomeViewport) 
   }
 }
 
-function drawFeatures(
+export function featureHitPriority(feature: FeatureDto): number {
+  const group = classifyFeatureType(feature.type)
+  if (feature.type.toLowerCase() === 'source') return 0
+  if (group === 'assembly_variation') return 1
+  if (group === 'regional' || group === 'other') return 2
+  return 3
+}
+
+function rowsForGroup(layout: ViewerLayout, group: FeatureGroupId, strand: 1 | -1 | 0): TrackRow[] {
+  return layout.trackRows.filter((row) => row.group === group && row.strand === strand)
+}
+
+function drawGroupedFeatures(
   context: CanvasRenderingContext2D,
   features: FeatureDto[],
   viewport: GenomeViewport,
   state: RenderState,
-  y: number,
-  strand: 1 | -1,
-  sourceLayer: boolean,
+  layout: ViewerLayout,
 ): HitRegion[] {
   const hits: HitRegion[] = []
-  for (const feature of features.filter((item) =>
-    (item.strand === strand || (sourceLayer && item.strand === 0 && strand === 1))
-      && item.end > viewport.start && item.start < viewport.end
-  )) {
-    const pieces = featureGeometry(feature, viewport, y)
+  const visible = features.filter((feature) => feature.end > viewport.start && feature.start < viewport.end)
+    .sort((a, b) => featureHitPriority(a) - featureHitPriority(b) || a.start - b.start || b.end - a.end || a.id - b.id)
+  const laneMaps = new Map<string, Map<number, number>>()
+  for (const feature of visible) {
+    const group = classifyFeatureType(feature.type)
+    const trackStrand: 1 | -1 | 0 = group === 'regional' || group === 'assembly_variation' ? 0 : feature.strand === -1 ? -1 : 1
+    const key = `${group}:${trackStrand}`
+    if (!laneMaps.has(key)) {
+      laneMaps.set(key, packFeatureLanes(visible.filter((candidate) => {
+        const candidateGroup = classifyFeatureType(candidate.type)
+        const candidateStrand = candidateGroup === 'regional' || candidateGroup === 'assembly_variation' ? 0 : candidate.strand === -1 ? -1 : 1
+        return candidateGroup === group && candidateStrand === trackStrand
+      })))
+    }
+    const rows = rowsForGroup(layout, group, trackStrand)
+    const lane = laneMaps.get(key)?.get(feature.id) ?? 0
+    const row = rows[Math.min(lane, rows.length - 1)]
+    if (!row) continue
+    const featureHeight = group === 'protein_processing' ? 12 : RENDER_CONFIG.trackHeight
+    const y = row.y + (row.height - featureHeight) / 2
+    const pieces = featureGeometry(feature, viewport, y).map((piece) => ({ ...piece, height: featureHeight }))
     if (pieces.length > 1) {
       context.strokeStyle = '#40566b'
       context.beginPath()
-      context.moveTo(pieces[0].x, y + 11)
-      context.lineTo(pieces.at(-1)!.x + pieces.at(-1)!.width, y + 11)
+      context.moveTo(pieces[0].x, y + featureHeight / 2)
+      context.lineTo(pieces.at(-1)!.x + pieces.at(-1)!.width, y + featureHeight / 2)
       context.stroke()
     }
     for (const [index, piece] of pieces.entries()) {
       const selected = feature.id === state.selectedFeatureId
-      context.fillStyle = selected ? '#ffb000' : sourceLayer ? '#c8d0d8' : strand === 1 ? '#147d64' : '#8f4261'
-      drawArrow(context, piece.x, piece.y, piece.width, piece.height, strand, feature.parts[index])
-      if (sourceLayer && !selected) {
-        context.strokeStyle = '#657586'
-        context.setLineDash([5, 4])
-        context.stroke()
-        context.setLineDash([])
-      }
+      drawFeatureShape(context, feature, group, piece, selected, feature.parts[index])
       if (selected) {
         context.strokeStyle = '#111'
         context.lineWidth = 2
@@ -384,14 +460,62 @@ function drawFeatures(
       hits.push({ featureId: feature.id, ...piece })
     }
     const width = pieces.reduce((sum, piece) => sum + piece.width, 0)
-    if ((state.showLabels || sourceLayer) && width >= RENDER_CONFIG.labelMinimumPixels) {
-      context.fillStyle = sourceLayer ? '#263849' : '#fff'
+    if (state.showLabels && width >= RENDER_CONFIG.labelMinimumPixels) {
+      context.fillStyle = group === 'genes' || group === 'rna' ? '#fff' : '#263849'
       context.font = '11px system-ui'
       context.textAlign = 'left'
-      context.fillText(feature.label, pieces[0].x + 5, y + 15, width - 9)
+      context.fillText(displayFeatureLabel(feature), pieces[0].x + 5, y + Math.min(14, featureHeight - 3), width - 9)
     }
   }
+  drawTrackLabels(context, layout)
   return hits
+}
+
+function drawTrackLabels(context: CanvasRenderingContext2D, layout: ViewerLayout) {
+  context.font = 'bold 9px system-ui'
+  context.textAlign = 'left'
+  for (const row of layout.trackRows.filter((item) => item.label)) {
+    context.fillStyle = 'rgba(248, 250, 252, .92)'
+    context.fillRect(0, row.y, RENDER_CONFIG.labelGutter, row.height)
+    context.fillStyle = '#344b5e'
+    context.fillText(row.label, 4, row.y + 12, RENDER_CONFIG.labelGutter - 6)
+  }
+}
+
+function drawFeatureShape(
+  context: CanvasRenderingContext2D,
+  feature: FeatureDto,
+  group: FeatureGroupId,
+  piece: { x: number; y: number; width: number; height: number },
+  selected: boolean,
+  part: FeatureDto['parts'][number],
+) {
+  const type = feature.type.toLowerCase()
+  context.setLineDash([])
+  if (selected) context.fillStyle = '#ffb000'
+  else if (group === 'genes') context.fillStyle = type === 'gene' ? '#356c8a' : feature.strand === -1 ? '#8f4261' : '#147d64'
+  else if (group === 'rna') context.fillStyle = '#5865a8'
+  else if (group === 'protein_processing') context.fillStyle = '#a85d16'
+  else if (group === 'regional') context.fillStyle = 'rgba(114, 90, 153, .28)'
+  else if (group === 'assembly_variation') context.fillStyle = 'rgba(121, 132, 143, .28)'
+  else context.fillStyle = 'rgba(75, 94, 112, .35)'
+
+  if (group === 'genes' || group === 'rna' || group === 'protein_processing') {
+    drawArrow(context, piece.x, piece.y, piece.width, piece.height, feature.strand === -1 ? -1 : 1, part)
+    context.strokeStyle = group === 'rna' ? '#252d67' : group === 'protein_processing' ? '#663500' : '#24475a'
+    if (type === 'gene') context.setLineDash([3, 2])
+    context.stroke()
+  } else {
+    context.beginPath()
+    const marker = ['variation', 'modified_base', 'misc_difference'].includes(type) && piece.width <= 5
+    if (marker) context.rect(piece.x - 1, piece.y, Math.max(3, piece.width), piece.height)
+    else context.rect(piece.x, piece.y, piece.width, piece.height)
+    context.fill()
+    context.strokeStyle = group === 'regional' ? '#604681' : '#5f6d79'
+    if (type === 'source' || type === 'gap' || type === 'assembly_gap') context.setLineDash(type === 'source' ? [6, 4] : [2, 2])
+    context.stroke()
+  }
+  context.setLineDash([])
 }
 
 function drawArrow(
