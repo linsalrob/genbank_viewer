@@ -4,7 +4,7 @@
 2. Under **Open a local GenBank file**, choose a `.gb`, `.gbk`, `.genbank`, or `.gbff` file. Gzip forms such as `.gb.gz`, `.gbk.gz`, `.genbank.gz`, and `.gbff.gz` are also accepted and decompressed locally.
 3. Alternatively, drag the file onto the dashed loading area. The filename, size, parsing state, record count, and warning count appear.
 4. For a multi-record file, choose **Record**. The selector shows ID, length, and feature count; changing records resets the view and selection.
-5. The initial whole-genome view shows a ruler, forward features, six stop-codon tracks, and reverse features. Whole-record `source` annotations are hidden by default so they do not cover CDSs. Use **Show source feature** to display their subdued, dashed track.
+5. The initial whole-genome view shows a ruler, Genes/CDSs and RNA tracks, six stop-codon tracks, and separated reverse features. Whole-record `source` annotations are hidden by default; enable **Assembly, source, and variation** to display their subdued, dashed track.
 6. Green right-pointing arrows are forward CDSs; purple left-pointing arrows are reverse CDSs. Joined blocks have connectors and partial blocks use dashed edges.
 7. Wheel or trackpad scroll around the pointer to zoom without losing the position beneath it. Double-click also zooms in.
 8. Drag horizontally, or focus the Canvas and use Left/Right arrows, to pan.
@@ -40,6 +40,18 @@ Amino-acid searches translate all six genomic frames with the genetic code curre
 Result coordinates are one-based and inclusive even though the application uses zero-based, half-open intervals internally. The first hit is selected automatically. Use **Previous**, **Next**, or a result row to centre it with flanking context; navigation wraps at either end. Moving between peptide hits in different frames moves the highlight to the matching signed frame immediately. A hatched, outlined band marks the interval without changing feature selection or hit testing. Its presentation intentionally changes at the 1.6 bp/pixel render threshold while the selected result and genomic coordinates stay the same. **Clear search** removes the query, results, and highlight. Loading another file or record also clears them.
 
 Searching is exact: there are no mismatches, gaps, alignments, regular expressions, or protein-domain searches. All normalization, six-frame translation, matching, navigation data, and highlighting remain inside the browser; query and record sequences are never uploaded.
+
+## Annotation tracks
+
+The **Annotation tracks** controls group parsed features into five biological display groups plus an **Other** fallback. **Genes and CDSs** and **RNAs and transcripts** are visible initially. Protein processing, regulatory and broad genomic regions, assembly/source/variation, and Other are initially hidden. Toggle any group to redraw immediately; choices remain active while switching records or loading another file in the same browser session.
+
+Forward and reverse annotations use separate rows around the six reading frames. Genes/CDSs use directional arrows, RNAs use outlined arrows, protein-processing annotations use narrower arrows, and broad regions use translucent outlined bands. Source is part of **Assembly, source, and variation**, is hidden by default, and is subdued and dashed when enabled. Click or hover any visible annotation to inspect its original key, coordinates, and complete qualifier list below the Canvas.
+
+Unknown, obsolete, and non-standard keys are preserved exactly and are available under **Other**. This grouping is a display taxonomy, not an official INSDC hierarchy or validation result.
+
+![Default Genes/CDSs and RNA annotation tracks](assets/grouped-tracks-default.png)
+
+![All annotation track groups enabled](assets/grouped-tracks-all.png)
 
 ![Nucleotide sequence search with a selected, highlighted result](assets/sequence-search.png)
 
