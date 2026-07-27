@@ -24,13 +24,13 @@ test('loads a local multi-record GenBank file and operates the viewer', async ({
   expect(requests.every((url) => new URL(url).origin === 'http://127.0.0.1:4173')).toBe(true)
 })
 
-test('loads gzip locally and supports source visibility and feature genetic codes', async ({ page }) => {
+test('loads gzip locally and supports grouped source visibility and feature genetic codes', async ({ page }) => {
   await page.goto('/genbank_viewer/')
   await page.getByTestId('file-input').setInputFiles(path.resolve('../test-data/simple_linear.gbk.gz'))
   await expect(page.getByRole('heading', { name: 'SIMPLE1' })).toBeVisible()
 
   const canvas = page.locator('canvas[aria-label^="Genome viewer"]')
-  await expect(canvas).toHaveAttribute('aria-label', /Source features are hidden. Genetic code 11/)
+  await expect(canvas).toHaveAttribute('aria-label', /Visible track groups: genes, rna.*Genetic code 11/)
   const canvasBox = await canvas.boundingBox()
   const inspectorBox = await page.getByLabel('Feature inspector region').boundingBox()
   expect(canvasBox).not.toBeNull()
@@ -38,17 +38,51 @@ test('loads gzip locally and supports source visibility and feature genetic code
   expect(inspectorBox!.y).toBeGreaterThan(canvasBox!.y + canvasBox!.height)
   expect(canvasBox!.width).toBeGreaterThan(1000)
 
-  await canvas.click({ position: { x: canvasBox!.width * 0.2, y: 52 } })
+  await canvas.click({ position: { x: canvasBox!.width * 0.2, y: 40 } })
   await expect(page.getByText('Declared translation table: 4')).toBeVisible()
   await page.getByRole('button', { name: 'Use feature code 4' }).click()
   await expect(page.getByRole('combobox', { name: 'Genetic code', exact: true })).toHaveValue('4')
 
-  await page.getByLabel('Show source feature').check()
-  await expect(canvas).toHaveAttribute('aria-label', /Source features are visible/)
-  await canvas.click({ position: { x: 8, y: 40 } })
+  await page.getByLabel(/Assembly, source, and variation/).check()
+  await expect(canvas).toHaveAttribute('data-visible-groups', /assembly_variation/)
+  const rows = JSON.parse((await canvas.getAttribute('data-track-rows'))!) as { id: string; y: number; height: number }[]
+  const assembly = rows.find((row) => row.id.startsWith('assembly_variation:'))!
+  await canvas.click({ position: { x: 8, y: assembly.y + assembly.height / 2 } })
   await expect(page.getByLabel('Feature inspector').getByRole('heading', { name: 'source' })).toBeVisible()
-  await page.getByLabel('Show source feature').uncheck()
+  await page.getByLabel(/Assembly, source, and variation/).uncheck()
   await expect(page.getByText('Select a feature in the genome view to inspect its annotations.')).toBeVisible()
+})
+
+test('toggles grouped annotation tracks and inspects an unknown feature', async ({ page }) => {
+  await page.goto('/genbank_viewer/')
+  await page.getByTestId('file-input').setInputFiles(path.resolve('../test-data/grouped_tracks.gbk'))
+  await expect(page.getByRole('heading', { name: 'TRACKTEST' })).toBeVisible()
+  const canvas = page.locator('canvas[aria-label^="Genome viewer"]')
+  await expect(canvas).toHaveAttribute('data-visible-groups', 'genes,rna')
+  await expect(canvas).toHaveAttribute('data-visible-feature-types', /gene,CDS,tRNA,rRNA/)
+  await expect(canvas).not.toHaveAttribute('data-visible-feature-types', /source|regulatory|custom_track/)
+
+  await page.getByLabel(/Regulatory and genomic regions/).check()
+  await expect(canvas).toHaveAttribute('data-visible-feature-types', /regulatory/)
+  await page.getByLabel(/Assembly, source, and variation/).check()
+  await expect(canvas).toHaveAttribute('data-visible-feature-types', /source/)
+  await page.getByRole('checkbox', { name: /Other/ }).check()
+  await expect(canvas).toHaveAttribute('data-visible-feature-types', /custom_track/)
+
+  const rows = JSON.parse((await canvas.getAttribute('data-track-rows'))!) as { id: string; y: number; height: number }[]
+  const other = rows.find((row) => row.id.startsWith('other:1:'))!
+  const box = await canvas.boundingBox()
+  await canvas.click({ position: { x: box!.width * 78 / 360, y: other.y + other.height / 2 } })
+  const inspector = page.getByLabel('Feature inspector')
+  await expect(inspector.getByRole('heading', { name: 'custom_track' })).toBeVisible()
+  await expect(inspector.getByText('Track group: Other')).toBeVisible()
+  await inspector.getByText('All qualifiers').click()
+  await expect(inspector.getByText('preserved unknown annotation')).toBeVisible()
+
+  await page.getByLabel('Position or range (1-based)').fill('1-120')
+  await page.getByRole('button', { name: 'Go', exact: true }).click()
+  await expect(canvas).toHaveAttribute('data-render-mode', 'sequence')
+  await expect.poll(async () => Number(await canvas.getAttribute('data-translated-codon-count'))).toBeGreaterThan(0)
 })
 
 test('searches nucleotides and six-frame peptides locally and navigates matches', async ({ page }) => {
