@@ -36,3 +36,11 @@ The renderer centralises its mode threshold and row coordinates in `RENDER_CONFI
 Highlight painting uses a stable layered flow: row backgrounds, translucent hatched highlight, features or sequence content, stop bars and row labels, then the highlight boundary and compact label. `searchHighlightGeometries()` receives the current `ViewerLayout`, uses `frameRowFor()` or `nucleotideRowFor()`, clips at Canvas edges, and never creates a hit region. Crossing the render threshold recomputes only Canvas geometry; it does not mutate the selected search DTO or require another search request.
 
 Canvas translation requests carry a monotonically increasing request number. A result is installed only if it is still the newest request and still matches the current render mode, preventing an older pan, zoom, or code selection from repainting stale tracks. Device-pixel-ratio scaling remains in `GenomeCanvas`; all layout and stop positions are expressed in CSS pixels before the context transform.
+
+## Grouped annotation tracks
+
+`web/src/lib/featureGroups.ts` is the authoritative case-insensitive display registry. It classifies preserved parser DTOs without changing feature keys or qualifiers. `buildViewerLayout()` creates rows only for enabled group/strand combinations, then positions the shared nucleotide-search, six-frame, and detailed sequence rows around them. Canvas height follows the active rows rather than fixed feature Y coordinates.
+
+Visible features are greedily lane-packed per group and strand after sorting by start, longest end, and feature ID. Joined features use their bounding interval for packing while retaining every constituent piece for drawing and hit testing. Packing is capped at three lanes; excess overlap uses a deterministic compact fallback rather than dropping annotations.
+
+Visual stacking and hit priority proceed from source/assembly and broad regions to gene, RNA, and processing annotations. Thus source wins a click only when no more specific visible feature occupies the hit position. Search highlights remain non-interactive.

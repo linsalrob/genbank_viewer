@@ -1,7 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte'
   import type { FeatureDto, GenomeRecordDto, SequenceSearchMatchDto, StopCodonDto, TranslationDto } from '../lib/genomeTypes'
-  import { hitTest, renderGenome, renderHeight, renderMode, searchHighlightGeometries, type HitRegion } from '../lib/renderer'
+  import { classifyFeatureType, displayFeatureLabel, type FeatureGroupId } from '../lib/featureGroups'
+  import { buildViewerLayout, hitTest, renderGenome, renderHeight, renderMode, searchHighlightGeometries, type HitRegion } from '../lib/renderer'
   import { bindInteractions } from '../lib/interactions'
   import { stopCodonsInRegion, translateRegion } from '../lib/wasm'
   import type { GenomeViewport } from '../lib/viewport'
@@ -11,7 +12,7 @@
   export let geneticCode = 11
   export let showLabels = true
   export let showStarts = true
-  export let showSourceFeatures = false
+  export let visibleGroups: Set<FeatureGroupId>
   export let selectedFeature: FeatureDto | null = null
   export let searchMatch: SequenceSearchMatchDto | null = null
   const dispatch = createEventDispatcher<{ viewport: GenomeViewport; select: FeatureDto | null }>()
@@ -32,13 +33,13 @@
     const context = canvas?.getContext('2d')
     if (!context) return
     const ratio = window.devicePixelRatio || 1
-    const cssHeight = renderHeight(viewport)
+    const cssHeight = renderHeight(viewport, visibleGroups, genome.features)
     canvas.width = Math.round(viewport.width * ratio)
     canvas.height = Math.round(cssHeight * ratio)
     canvas.style.height = `${cssHeight}px`
     context.setTransform(ratio, 0, 0, ratio, 0, 0)
     const result = renderGenome(context, genome, viewport, {
-      selectedFeatureId: selectedFeature?.id, showLabels, showStarts, showSourceFeatures,
+      selectedFeatureId: selectedFeature?.id, showLabels, showStarts, visibleGroups,
       searchMatch, stopCodons, translation,
     })
     hits = result.hitRegions
@@ -46,13 +47,17 @@
     canvas.dataset.stopCount = String(renderMode(viewport) === 'stop_tracks' ? stopCodons.length : 0)
     canvas.dataset.translatedCodonCount = String(renderMode(viewport) === 'sequence' ? (translation?.codons.length ?? 0) : 0)
     canvas.dataset.renderDataCode = String(renderDataCode)
-    const highlight = searchMatch ? searchHighlightGeometries(searchMatch, viewport) : []
+    const layout = buildViewerLayout(viewport, visibleGroups, { features: genome.features })
+    const highlight = searchMatch ? searchHighlightGeometries(searchMatch, viewport, layout) : []
     canvas.dataset.searchHighlightMode = searchMatch ? renderMode(viewport) : 'none'
     canvas.dataset.searchHighlightTargets = highlight.map((geometry) =>
       geometry.target.kind === 'frame'
         ? `frame:${geometry.target.frame > 0 ? '+' : ''}${geometry.target.frame}`
         : `nucleotide:${geometry.target.strand}`
     ).join(',')
+    canvas.dataset.visibleGroups = [...visibleGroups].sort().join(',')
+    canvas.dataset.visibleFeatureTypes = genome.features.filter((feature) => visibleGroups.has(classifyFeatureType(feature.type))).map((feature) => feature.type).join(',')
+    canvas.dataset.trackRows = JSON.stringify(layout.trackRows.map((row) => ({ id: row.id, y: row.y, height: row.height })))
   }
   async function updateRenderData() {
     const request = ++translationRequest
@@ -105,7 +110,7 @@
   }
 
   $: if (canvas && genome && viewport && geneticCode) updateRenderData()
-  $: if (canvas && showSourceFeatures !== undefined && searchMatch !== undefined) queueDraw()
+  $: if (canvas && visibleGroups && searchMatch !== undefined) queueDraw()
   $: searchDescription = describeSearchMatch(searchMatch, viewport)
 
   onMount(() => {
@@ -125,14 +130,14 @@
   <canvas
     bind:this={canvas}
     tabindex="0"
-    aria-label={`Genome viewer for ${genome.id}. ${genome.features.length} parsed features. Source features are ${showSourceFeatures ? 'visible' : 'hidden'}. Genetic code ${geneticCode}. ${renderMode(viewport) === 'stop_tracks' ? 'Zoomed-out view shows stop codons as vertical bars in six reading-frame tracks.' : 'Zoomed-in view shows nucleotide and amino-acid sequences in six reading frames.'} ${searchDescription} Use arrows to pan, plus and minus to zoom, Home for the whole genome.`}
+    aria-label={`Genome viewer for ${genome.id}. ${genome.features.filter((feature) => visibleGroups.has(classifyFeatureType(feature.type))).length} visible annotations. Visible track groups: ${[...visibleGroups].join(', ')}. Forward and reverse annotation tracks are separated; broad regions are behind gene tracks. Genetic code ${geneticCode}. ${renderMode(viewport) === 'stop_tracks' ? 'Zoomed-out view shows stop codons as vertical bars in six reading-frame tracks.' : 'Zoomed-in view shows nucleotide and amino-acid sequences in six reading frames.'} ${searchDescription} Use arrows to pan, plus and minus to zoom, Home for the whole genome.`}
     on:click={click}
     on:mousemove={hover}
     on:mouseleave={() => tooltip = null}
   ></canvas>
   {#if tooltip}
     <div class="tooltip" style={`left:${tooltip.x + 12}px;top:${tooltip.y + 12}px`}>
-      <strong>{tooltip.feature.label}</strong><br />
+      <strong>{displayFeatureLabel(tooltip.feature)}</strong><br />
       {tooltip.feature.product ?? tooltip.feature.type}<br />
       {tooltip.feature.strand === 1 ? '→' : '←'} {tooltip.feature.start + 1}..{tooltip.feature.end}
     </div>

@@ -5,6 +5,7 @@
   import FeatureInspector from './components/FeatureInspector.svelte'
   import SequenceSearch from './components/SequenceSearch.svelte'
   import type { BrowserError, FeatureDto, GeneticCodeMetadataDto, GenomeRecordDto, SequenceSearchMatchDto, SequenceSearchType } from './lib/genomeTypes'
+  import { FEATURE_GROUPS, classifyFeatureType, defaultVisibleFeatureGroups, featureGroupCounts, type FeatureGroupId } from './lib/featureGroups'
   import { adjacentResultIndex, normalizeQueryForDisplay, sortSearchResults, viewportForSearchMatch } from './lib/search'
   import { parseGenbankWithWasm, searchSequence, supportedGeneticCodes } from './lib/wasm'
   import { bpPerPixel, parseCoordinateInput, zoom, type GenomeViewport } from './lib/viewport'
@@ -21,7 +22,7 @@
   let geneticCode = 11
   let showLabels = true
   let showStarts = true
-  let showSourceFeatures = false
+  let visibleGroups = defaultVisibleFeatureGroups()
   let geneticCodes: GeneticCodeMetadataDto[] = []
   let searchQuery = ''
   let searchType: SequenceSearchType = 'nucleotide'
@@ -37,6 +38,8 @@
       .filter((qualifier) => qualifier.key.toLowerCase() === 'transl_table' && /^\d+$/.test(qualifier.value ?? ''))
       .map((qualifier) => Number(qualifier.value)),
   ))
+  $: annotationCounts = featureGroupCounts(genome?.features ?? [])
+  $: visibleAnnotationCount = (genome?.features ?? []).filter((feature) => visibleGroups.has(classifyFeatureType(feature.type))).length
 
   onMount(async () => {
     geneticCodes = await supportedGeneticCodes()
@@ -84,9 +87,12 @@
   function copyDetails() {
     if (error) navigator.clipboard.writeText(JSON.stringify(error, null, 2))
   }
-  function toggleSource() {
-    showSourceFeatures = !showSourceFeatures
-    if (!showSourceFeatures && selected?.type.toLowerCase() === 'source') selected = null
+  function toggleFeatureGroup(group: FeatureGroupId) {
+    const next = new Set(visibleGroups)
+    if (next.has(group)) next.delete(group)
+    else next.add(group)
+    visibleGroups = next
+    if (selected && !visibleGroups.has(classifyFeatureType(selected.type))) selected = null
   }
   function clearSearch() {
     searchQuery = ''
@@ -170,6 +176,9 @@
         <div><dt>Coding density</dt><dd>{(genome.codingSummary.coding_density * 100).toFixed(1)}%</dd></div>
         <div><dt>Forward / reverse</dt><dd>{genome.codingSummary.forward_cds_count} / {genome.codingSummary.reverse_cds_count}</dd></div>
       </dl>
+      <details class="annotation-counts"><summary>Annotation group counts</summary>
+        <dl>{#each FEATURE_GROUPS as group}<div><dt>{group.label}</dt><dd>{annotationCounts[group.id]}</dd></div>{/each}</dl>
+      </details>
     </section>
     <nav class="toolbar" aria-label="Genome controls">
       <button on:click={wholeGenome}>Whole genome</button>
@@ -182,18 +191,25 @@
       </select></label>
       <label><input type="checkbox" bind:checked={showLabels} /> Labels</label>
       <label><input type="checkbox" bind:checked={showStarts} /> Start codons</label>
-      <label><input type="checkbox" checked={showSourceFeatures} on:change={toggleSource} /> Show source feature</label>
       <output>{Math.floor(viewport.start + 1).toLocaleString()}..{Math.ceil(viewport.end).toLocaleString()} · {bpPerPixel(viewport).toFixed(2)} bp/px</output>
     </nav>
+    <fieldset class="track-controls"><legend>Annotation tracks</legend>
+      {#each FEATURE_GROUPS as group}
+        <label title={group.description}><input type="checkbox" checked={visibleGroups.has(group.id)} on:change={() => toggleFeatureGroup(group.id)} /> {group.label} <span>({annotationCounts[group.id]})</span></label>
+      {/each}
+    </fieldset>
+    <div class="track-legend" aria-label="Annotation track legend">
+      <strong>Track styles:</strong><span class="genes">arrow · Genes/CDSs</span><span class="rna">outlined arrow · RNAs</span><span class="processing">narrow arrow · Processing</span><span class="regional">translucent band · Regions</span><span class="assembly">dashed block/marker · Assembly/variation</span><span class="other">neutral outline · Other</span><small>Dense overlaps share the last compact lane; no feature is discarded.</small>
+    </div>
     <SequenceSearch bind:query={searchQuery} bind:searchType {geneticCode} features={genome.features}
       matches={searchMatches} selectedIndex={searchIndex} status={searchStatus} error={searchError}
       on:search={performSearch} on:clear={clearSearch} on:typechange={clearSearchResults}
       on:select={(event) => selectSearchMatch(event.detail)} on:previous={() => moveSearchMatch(-1)} on:next={() => moveSearchMatch(1)} />
     <div class="workspace">
       <section aria-label="Genome canvas region">
-        <GenomeCanvas {genome} bind:viewport {geneticCode} {showLabels} {showStarts} {showSourceFeatures} selectedFeature={selected} {searchMatch}
+        <GenomeCanvas {genome} bind:viewport {geneticCode} {showLabels} {showStarts} {visibleGroups} selectedFeature={selected} {searchMatch}
           on:viewport={(event) => viewport = event.detail} on:select={(event) => selected = event.detail} />
-        <p class="canvas-alt">Visible range {Math.floor(viewport.start + 1)}..{Math.ceil(viewport.end)}. Source features are {showSourceFeatures ? 'visible' : 'hidden'}. Genetic code {geneticCode}.{searchMatch ? ` Sequence-search match highlighted at ${searchMatch.start + 1}..${searchMatch.end}.` : ''} Forward CDSs point right; reverse CDSs point left. Zoomed-out view: vertical bars mark stop codons in each of six reading frames. At low zoom, peptide matches highlight their reading frame and nucleotide matches highlight a forward or reverse strand lane. At high zoom, the matched sequence is highlighted directly.</p>
+        <p class="canvas-alt">Visible range {Math.floor(viewport.start + 1)}..{Math.ceil(viewport.end)} with {visibleAnnotationCount} visible annotations. Track groups shown: {FEATURE_GROUPS.filter((group) => visibleGroups.has(group.id)).map((group) => group.label).join(', ')}. Forward and reverse annotations are separated, and broad regions are drawn behind genes. Genetic code {geneticCode}.{searchMatch ? ` Sequence-search match highlighted at ${searchMatch.start + 1}..${searchMatch.end}.` : ''} Six reading frames remain visible; low-zoom stop codons are vertical bars.</p>
       </section>
       <section aria-label="Feature inspector region">
         <FeatureInspector feature={selected} {geneticCode} supportedCodes={geneticCodes} on:usecode={(event) => useFeatureCode(event.detail)} />
@@ -215,7 +231,11 @@
   h1 { margin:0 } header p { margin:.1rem 0 } .privacy { padding:.4rem .7rem; border:1px solid #8ed7c4; border-radius:2rem }
   main { display:grid; gap:1rem; max-width:1500px; margin:auto; padding:1rem }
   .file-facts,.toolbar { display:flex; flex-wrap:wrap; gap:.7rem; align-items:center; padding:.7rem; background:#fff; border-radius:.5rem }
-  .summary { padding:.8rem 1rem; background:#fff; border-radius:.5rem } .summary h2,.summary p { margin:.2rem 0 }
+  .track-controls { display:flex; flex-wrap:wrap; gap:.55rem 1rem; padding:.75rem 1rem; border:1px solid #b9c6d2; border-radius:.5rem; background:#fff }
+  .track-controls legend { font-weight:700 } .track-controls label { white-space:nowrap } .track-controls span { color:#526475 }
+  .track-legend { display:flex; flex-wrap:wrap; gap:.4rem 1rem; padding:.6rem .8rem; background:#f8fafc; border:1px solid #cbd5de; border-radius:.4rem; font-size:.82rem }
+  .track-legend span::before { content:'▰'; margin-right:.3rem } .track-legend .rna::before { content:'▱' } .track-legend .processing::before { content:'▬' } .track-legend .regional::before { content:'▧' } .track-legend .assembly::before { content:'┄' } .track-legend .other::before { content:'□' }
+  .summary { padding:.8rem 1rem; background:#fff; border-radius:.5rem } .summary h2,.summary p { margin:.2rem 0 } .annotation-counts { margin-top:.7rem }
   dl { display:flex; flex-wrap:wrap; gap:1rem 2rem } dl div { min-width:8rem } dt { font-size:.8rem; color:#526475 } dd { margin:0; font-weight:700 }
   .workspace { display:grid; grid-template-columns:minmax(0,1fr); gap:1rem; min-width:0 }
   .canvas-alt { margin:.35rem 0; font-size:.85rem } .warnings { padding:1rem; background:#fff8db; border-left:5px solid #ad7400 }

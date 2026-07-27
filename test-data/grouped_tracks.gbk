@@ -1,0 +1,51 @@
+LOCUS       TRACKTEST        360 bp    DNA     linear   SYN 01-JAN-2026
+DEFINITION  Synthetic grouped annotation track fixture.
+ACCESSION   TRACKTEST
+FEATURES             Location/Qualifiers
+     source          1..360
+                     /organism="Synthetic construct"
+                     /mol_type="other DNA"
+     operon          20..250
+                     /note="test operon"
+     regulatory      20..28
+                     /regulatory_class="promoter"
+     gene            30..180
+                     /gene="trackA"
+                     /locus_tag="TRACK_001"
+     CDS             30..180
+                     /gene="trackA"
+                     /locus_tag="TRACK_001"
+                     /product="synthetic track protein"
+                     /protein_id="TEST0001"
+                     /transl_table=11
+     mat_peptide     60..120
+                     /product="processed peptide"
+     tRNA            complement(190..225)
+                     /gene="trnX"
+                     /product="tRNA-Xxx"
+     rRNA            230..300
+                     /product="synthetic ribosomal RNA"
+     repeat_region   90..145
+                     /rpt_type="direct"
+                     /rpt_family="track-repeat"
+     mobile_element  140..260
+                     /mobile_element_type="transposon:TnTest"
+     misc_feature    complement(270..310)
+                     /note="neutral regional annotation"
+     assembly_gap    315..325
+                     /estimated_length=11
+                     /gap_type="within scaffold"
+     variation       42
+                     /replace="G"
+     modified_base   205
+                     /mod_base="m5c"
+     custom_track    join(75..82,330..338)
+                     /custom_qualifier="preserved unknown annotation"
+ORIGIN
+        1 atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc
+       61 atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc
+      121 atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc
+      181 atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc
+      241 atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc
+      301 atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc
+//

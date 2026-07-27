@@ -30,3 +30,6 @@
 - **npm problems:** use the documented Node version and a fresh `npm ci`.
 - **Chromebook permissions:** allow the browser to read the selected local file; genbank_viewer needs no folder-wide access.
 - **Offline use:** after dependencies and production assets are installed/built, serve the static `web/dist` directory without network access.
+- **A parsed feature is not visible:** only Genes/CDSs and RNAs/transcripts are enabled initially. Use **Annotation tracks** to show processing, regional, assembly/source/variation, or Other features; summary counts include hidden features.
+- **An unfamiliar key is missing:** enable **Other**. Classification preserves unknown or obsolete keys and does not declare them invalid.
+- **Very dense annotations share a row:** the viewer packs overlaps into at most three lanes per group and strand. Excess overlaps use a compact deterministic fallback and are not discarded.
