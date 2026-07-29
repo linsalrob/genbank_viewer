@@ -1,5 +1,7 @@
 # Installation
 
+This page describes a development installation. People who want to run genbank_viewer later without internet access should use the [standalone and offline installation guide](offline-installation.md), including its platform-specific instructions and verification procedure. Prebuilt installers and a PWA are not currently available.
+
 Install Rust 1.85 or newer, the `wasm32-unknown-unknown` target, `wasm-pack`, Node.js 20 or newer, and npm 10 or newer.
 
 ```bash
