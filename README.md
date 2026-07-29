@@ -22,6 +22,12 @@ Files are processed inside the browser and are not uploaded. genbank_viewer curr
 
 Current evergreen Chrome, Edge, Firefox, and Safari releases are the supported targets. Chromium-based Chromebooks are supported subject to browser file permissions.
 
+## Standalone and offline installation
+
+The hosted GitHub Pages site and an offline installation are different. The hosted site needs a network connection to load and is not an installable Progressive Web App (PWA). Prebuilt desktop installers are not currently published, and the repository has no desktop wrapper.
+
+The verified offline method is an advanced local production build: download the source and build dependencies while online, build the browser application, and later serve the generated files from `127.0.0.1` without internet access. See the [standalone and offline installation guide](docs/offline-installation.md) for the method comparison, platform instructions, privacy checks, updating, and removal.
+
 ## Quick start
 
 Prerequisites are Rust 1.85+, Node.js 20+, npm, `wasm-pack`, and the `wasm32-unknown-unknown` Rust target.

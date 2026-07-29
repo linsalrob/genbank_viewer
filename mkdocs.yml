@@ -6,6 +6,15 @@ nav:
   - Home: index.md
   - Use genbank_viewer: how-to-use-genbank_viewer.md
   - Installation: installation.md
+  - Standalone and offline:
+      - Overview: offline-installation.md
+      - Windows: install-windows.md
+      - Linux: install-linux.md
+      - macOS: install-macos.md
+      - Chromebook: install-chromebook.md
+      - Verify offline operation: offline-verification.md
+      - Update and uninstall: updating-and-uninstalling.md
+      - Troubleshooting: troubleshooting-offline.md
   - Development: development.md
   - Architecture: architecture.md
   - Coordinates: coordinate-system.md
