@@ -1,3 +1,5 @@
+//! A deliberately scoped, warning-preserving GenBank flat-file parser.
+
 use genome_core::coordinates::{
     one_based_inclusive_to_zero_based_half_open, one_based_single_to_zero_based_half_open,
 };
@@ -7,6 +9,7 @@ use genome_core::{
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// A fatal parse diagnostic with the global one-based input line.
 pub struct ParseError {
     pub record_id: Option<String>,
     pub line: usize,
@@ -26,6 +29,10 @@ impl std::fmt::Display for ParseError {
 
 impl std::error::Error for ParseError {}
 
+/// Parses every non-empty `//`-separated record in a GenBank text file.
+///
+/// Unsupported but recognisable locations become warning-bearing preserved
+/// locations; structural errors return a [`ParseError`].
 pub fn parse_genbank(input: &str) -> Result<Vec<GenomeRecord>, ParseError> {
     let normalized = input.replace("\r\n", "\n").replace('\r', "\n");
     let lines: Vec<&str> = normalized.lines().collect();
@@ -53,6 +60,7 @@ pub fn parse_genbank(input: &str) -> Result<Vec<GenomeRecord>, ParseError> {
     Ok(records)
 }
 
+/// Parses and returns the first record, retained for single-record callers.
 pub fn parse_first_genbank_record(input: &str) -> Result<GenomeRecord, ParseError> {
     parse_genbank(input)?
         .into_iter()

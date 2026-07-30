@@ -54,12 +54,14 @@ export const RENDER_CONFIG = {
   labelGutter: 62,
 } as const
 
+/** Chooses compact stop tracks above 1.6 bp/px and letters at or below it. */
 export function renderMode(view: GenomeViewport): RenderMode {
   return bpPerPixel(view) <= RENDER_CONFIG.baseThreshold ? 'sequence' : 'stop_tracks'
 }
 
 export interface ViewerLayoutOptions { features?: FeatureDto[] }
 
+/** Greedily packs overlaps into stable lanes, sharing the last lane at the cap. */
 export function packFeatureLanes(features: FeatureDto[], maximumLanes = RENDER_CONFIG.maximumFeatureLanes): Map<number, number> {
   const sorted = [...features].sort((a, b) => a.start - b.start || b.end - a.end || a.id - b.id)
   const laneEnds: number[] = []
@@ -81,6 +83,7 @@ function groupLaneCount(features: FeatureDto[], group: FeatureGroupId, strand: 1
   return Math.max(1, ...packFeatureLanes(matching).values()) + 1
 }
 
+/** Positions enabled feature groups and shared nucleotide/frame rows dynamically. */
 export function buildViewerLayout(
   view: GenomeViewport,
   visibleGroups: Set<FeatureGroupId> = new Set(['genes', 'rna']),
@@ -175,6 +178,7 @@ export interface SearchHighlightGeometry {
   target: SearchHighlightTarget
 }
 
+/** Maps a search DTO to its current signed-frame or nucleotide-row highlight. */
 export function searchHighlightGeometries(
   match: SequenceSearchMatchDto,
   view: GenomeViewport,

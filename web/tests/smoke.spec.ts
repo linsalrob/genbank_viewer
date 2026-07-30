@@ -6,6 +6,9 @@ test('loads a local multi-record GenBank file and operates the viewer', async ({
   page.on('request', (request) => requests.push(request.url()))
 
   await page.goto('/genbank_viewer/')
+  await expect(page.getByRole('link', { name: 'genbank_viewer Documentation' })).toHaveAttribute(
+    'href', 'https://genbank-viewer.readthedocs.io/en/latest/',
+  )
   await page.getByTestId('file-input').setInputFiles(path.resolve('../test-data/two_records.gbk'))
   await expect(page.getByRole('heading', { name: 'FIRST' })).toBeVisible()
   await expect(page.getByText('2 records')).toBeVisible()

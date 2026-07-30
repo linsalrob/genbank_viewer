@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test tests/smoke.spec.ts",
+    "docs:screenshots": "playwright test tests/docs-screenshots.spec.ts",
+    "docs:audit": "node scripts/check-docs.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

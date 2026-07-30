@@ -1,3 +1,4 @@
+/** Zero-based half-open genomic range rendered into a CSS-pixel width. */
 export interface GenomeViewport { start: number; end: number; width: number }
 export type Viewport = GenomeViewport
 export const MIN_VISIBLE_BASES = 3
@@ -26,6 +27,7 @@ export function pan(view: GenomeViewport, deltaPixels: number, genomeLength: num
   return clampViewport({ ...view, start: view.start - delta, end: view.end - delta }, genomeLength)
 }
 
+/** Zooms around a pixel anchor while preserving its genomic coordinate. */
 export function zoom(view: GenomeViewport, anchorPixel: number, factor: number, genomeLength: number): GenomeViewport {
   const anchor = screenToGenome(anchorPixel, view)
   const span = Math.max(MIN_VISIBLE_BASES, Math.min(genomeLength, (view.end - view.start) / factor))
@@ -33,6 +35,7 @@ export function zoom(view: GenomeViewport, anchorPixel: number, factor: number, 
   return clampViewport({ ...view, start: anchor - span * fraction, end: anchor + span * (1 - fraction) }, genomeLength)
 }
 
+/** Converts one-based user input to a clamped zero-based half-open interval. */
 export function parseCoordinateInput(input: string, genomeLength: number): { start: number; end: number } | null {
   const normalized = input.trim().replaceAll(',', '').replace(/\s+/g, '')
   const match = normalized.match(/^(\d+)(?:(?:\.\.|-)(\d+))?$/)

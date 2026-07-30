@@ -1,3 +1,5 @@
+//! NCBI genetic-code metadata and coordinate-aware six-frame translation.
+
 use serde::{Deserialize, Serialize};
 
 /// Display metadata for an NCBI translation table.
@@ -18,6 +20,7 @@ struct GeneticCodeDefinition {
 }
 
 #[derive(Debug, Clone, Copy)]
+/// A validated handle to one immutable registered NCBI genetic code.
 pub struct GeneticCode(&'static GeneticCodeDefinition);
 
 // Data transcribed from NCBI gc.prt version 4.6 / Genetic Codes page,
@@ -228,6 +231,7 @@ static GENETIC_CODES: &[GeneticCodeDefinition] = &[
     ),
 ];
 
+/// Returns metadata for every registered table in selector order.
 pub fn supported_genetic_codes() -> Vec<GeneticCodeMetadata> {
     GENETIC_CODES.iter().map(|code| code.metadata).collect()
 }
@@ -295,6 +299,7 @@ impl GeneticCode {
     }
 }
 
+/// One translated codon mapped to an increasing forward-reference interval.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TranslatedCodon {
     pub genomic_start: u64,
@@ -309,6 +314,7 @@ pub struct TranslatedCodon {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Codons intersecting a requested region in all six globally aligned frames.
 pub struct SixFrameTranslation {
     pub region_start: u64,
     pub region_end: u64,
@@ -316,12 +322,14 @@ pub struct SixFrameTranslation {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// A table-specific stop codon in one signed reading frame.
 pub struct StopCodon {
     pub genomic_start: u64,
     pub genomic_end: u64,
     pub frame: i8,
 }
 
+/// Returns the uppercase DNA reverse complement; ambiguous symbols become `N`.
 pub fn reverse_complement(input: &[u8]) -> Vec<u8> {
     input.iter().rev().map(|base| complement(*base)).collect()
 }
@@ -373,6 +381,7 @@ fn is_start(codon: [u8; 3], code: GeneticCode) -> bool {
     code.0.starts[codon_index(codon)] == b'M'
 }
 
+/// Translates one codon with the standard code; invalid/ambiguous input is `X`.
 pub fn codon_to_aa(codon: &[u8]) -> char {
     codon_to_aa_with_code(
         codon,
@@ -380,12 +389,18 @@ pub fn codon_to_aa(codon: &[u8]) -> char {
     )
 }
 
+/// Translates one codon with a selected registered code.
 pub fn codon_to_aa_with_code(codon: &[u8], code: GeneticCode) -> char {
     normalized_codon(codon)
         .map(|value| amino_acid(value, code))
         .unwrap_or('X')
 }
 
+/// Translates codons intersecting a zero-based half-open region in six frames.
+///
+/// Frame alignment is anchored to the complete record. Reverse codons expose
+/// forward-reference coordinates while retaining bases in translated 5′→3′
+/// orientation.
 pub fn translate_region_six_frames(
     sequence: &[u8],
     region_start: u64,

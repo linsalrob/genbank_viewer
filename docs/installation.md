@@ -25,7 +25,7 @@ cargo install wasm-pack
 cd web
 npm ci
 npm run build
-npm run preview
+npm run preview -- --host 127.0.0.1
 ```
 
-Open http://localhost:4173/genbank_viewer/. Vite's production mode selects the deployed `/genbank_viewer/` base path; ordinary `npm run dev` continues to use `/`.
+Open http://127.0.0.1:4173/genbank_viewer/. Vite's production mode selects the deployed `/genbank_viewer/` base path; ordinary `npm run dev` continues to use `/`.

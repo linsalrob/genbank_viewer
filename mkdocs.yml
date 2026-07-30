@@ -1,31 +1,62 @@
 site_name: genbank_viewer
-site_description: Local-first browser genome viewer
+site_description: Local-first GenBank genome viewer for inspection, translation, and exact sequence search
+site_url: https://genbank-viewer.readthedocs.io/en/latest/
+repo_url: https://github.com/linsalrob/genbank_viewer
+repo_name: linsalrob/genbank_viewer
+edit_uri: edit/main/docs/
 theme:
   name: material
+  font: false
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
 nav:
   - Home: index.md
-  - Use genbank_viewer: how-to-use-genbank_viewer.md
-  - Installation: installation.md
-  - Standalone and offline:
-      - Overview: offline-installation.md
+  - Using genbank_viewer:
+      - Quick start: how-to-use-genbank_viewer.md
+      - Loading files: loading-files.md
+      - Navigating and zooming: navigation.md
+      - Annotation tracks: annotation-tracks.md
+      - Feature inspection: feature-inspection.md
+      - Six reading frames: translation.md
+      - Sequence search: search-semantics.md
+      - Genetic codes: genetic-codes.md
+      - Warnings and errors: warnings-and-errors.md
+  - Installation:
+      - Hosted application and development: installation.md
+      - Standalone and offline: offline-installation.md
       - Windows: install-windows.md
       - Linux: install-linux.md
       - macOS: install-macos.md
       - Chromebook: install-chromebook.md
       - Verify offline operation: offline-verification.md
       - Update and uninstall: updating-and-uninstalling.md
-      - Troubleshooting: troubleshooting-offline.md
-  - Development: development.md
-  - Architecture: architecture.md
-  - Coordinates: coordinate-system.md
-  - GenBank support: genbank-support.md
-  - Translation: translation.md
-  - Testing: testing.md
-  - Troubleshooting: troubleshooting.md
-  - Privacy and security: privacy-and-security.md
-  - Accessibility: accessibility.md
-  - Contributing: contributing.md
-  - Roadmap: roadmap.md
+  - Reference:
+      - GenBank support: genbank-support.md
+      - Feature keys and display groups: feature-groups.md
+      - Qualifiers: qualifiers.md
+      - Coordinate system: coordinate-system.md
+      - Search semantics: search-semantics.md
+      - Keyboard controls: keyboard-controls.md
+  - Architecture:
+      - Overview: architecture.md
+      - Privacy and security: privacy-and-security.md
+  - Development:
+      - Setup: development.md
+      - Testing and fixtures: testing.md
+      - Documentation and screenshots: documentation.md
+      - Read the Docs: readthedocs.md
+      - Release and deployment: release-and-deployment.md
+  - Project:
+      - Accessibility: accessibility.md
+      - Contributing: contributing.md
+      - Roadmap: roadmap.md
+      - Changelog: changelog.md
+      - Troubleshooting: troubleshooting.md
+      - Offline troubleshooting: troubleshooting-offline.md
+plugins:
+  - search
 markdown_extensions:
   - admonition
   - tables
