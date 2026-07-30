@@ -1,0 +1,94 @@
+name: Publish Read the Docs
+
+on:
+  push:
+    branches:
+      - main
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      version_slug:
+        description: Read the Docs version slug
+        required: true
+        default: latest
+        type: string
+      sync_versions:
+        description: Synchronise repository versions before building
+        required: true
+        default: false
+        type: boolean
+      wait_for_build:
+        description: Wait for the remote build and fail if it fails
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: readthedocs-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-docs.txt
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.85"
+      - run: python -m pip install -r requirements-docs.txt
+      - run: python -m mkdocs build --strict
+      - working-directory: web
+        run: npm run docs:audit
+      - run: cargo doc --workspace --no-deps
+      - name: Validate publication configuration
+        env:
+          RTD_API_TOKEN: ${{ secrets.RTD_API_TOKEN }}
+          RTD_PROJECT_SLUG: ${{ vars.RTD_PROJECT_SLUG }}
+        run: |
+          test -n "$RTD_API_TOKEN" || { echo "RTD_API_TOKEN Actions secret is required" >&2; exit 1; }
+          test -n "$RTD_PROJECT_SLUG" || { echo "RTD_PROJECT_SLUG repository variable is required" >&2; exit 1; }
+      - name: Select publication version
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          MANUAL_VERSION: ${{ inputs.version_slug }}
+          MANUAL_SYNC: ${{ inputs.sync_versions }}
+          MANUAL_WAIT: ${{ inputs.wait_for_build }}
+        run: |
+          if [ "$EVENT_NAME" = release ]; then
+            version="$RELEASE_TAG"; sync=true; wait=true
+          elif [ "$EVENT_NAME" = workflow_dispatch ]; then
+            version="$MANUAL_VERSION"; sync="$MANUAL_SYNC"; wait="$MANUAL_WAIT"
+          else
+            version=latest; sync=false; wait=true
+          fi
+          case "$version" in (*[!A-Za-z0-9._-]*|'') echo "Invalid version slug" >&2; exit 1;; esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sync=$sync" >> "$GITHUB_OUTPUT"
+          echo "wait=$wait" >> "$GITHUB_OUTPUT"
+      - name: Request Read the Docs build
+        env:
+          RTD_API_TOKEN: ${{ secrets.RTD_API_TOKEN }}
+          RTD_PROJECT_SLUG: ${{ vars.RTD_PROJECT_SLUG }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SYNC: ${{ steps.version.outputs.sync }}
+          WAIT: ${{ steps.version.outputs.wait }}
+        run: |
+          args=(--project "$RTD_PROJECT_SLUG" --version "$VERSION")
+          [ "$SYNC" = true ] && args+=(--sync)
+          [ "$WAIT" = true ] && args+=(--wait)
+          python .github/scripts/readthedocs.py "${args[@]}"
