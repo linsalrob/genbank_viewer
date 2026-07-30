@@ -9,6 +9,7 @@
   import { adjacentResultIndex, normalizeQueryForDisplay, sortSearchResults, viewportForSearchMatch } from './lib/search'
   import { parseGenbankWithWasm, searchSequence, supportedGeneticCodes } from './lib/wasm'
   import { bpPerPixel, parseCoordinateInput, zoom, type GenomeViewport } from './lib/viewport'
+  import { DOCUMENTATION_URL } from './lib/config'
 
   let records: GenomeRecordDto[] = []
   let recordIndex = 0
@@ -146,7 +147,13 @@
 </script>
 
 <svelte:head><title>genbank_viewer — local-first genome viewer</title></svelte:head>
-<header><div><h1>genbank_viewer</h1><p>Local-first GenBank genome viewer</p></div><span class="privacy">Sequence data stays in your browser</span></header>
+<header>
+  <div><h1>genbank_viewer</h1><p>Local-first GenBank genome viewer</p></div>
+  <nav class="site-links" aria-label="Project links">
+    <a href={DOCUMENTATION_URL} aria-label="genbank_viewer Documentation">Documentation</a>
+    <span class="privacy">Sequence data stays in your browser</span>
+  </nav>
+</header>
 <main>
   <FileLoader onLoad={loadFile} onError={showFileError} />
   {#if state === 'parsing'}<p role="status">Parsing {filename}…</p>{/if}
@@ -227,8 +234,9 @@
 <style>
   :global(*) { box-sizing:border-box } :global(body) { margin:0; color:#172433; background:#edf2f6; font-family:system-ui,sans-serif }
   :global(button), :global(input), :global(select) { font:inherit } :global(button:focus-visible), :global(input:focus-visible), :global(select:focus-visible) { outline:3px solid #ffbf47; outline-offset:2px }
-  header { display:flex; justify-content:space-between; align-items:center; padding:.8rem max(1rem, calc((100% - 1500px)/2)); color:#fff; background:#173e51 }
+  header { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:.8rem max(1rem, calc((100% - 1500px)/2)); color:#fff; background:#173e51 }
   h1 { margin:0 } header p { margin:.1rem 0 } .privacy { padding:.4rem .7rem; border:1px solid #8ed7c4; border-radius:2rem }
+  .site-links { display:flex; align-items:center; gap:.8rem } .site-links a { color:#fff; font-weight:700; text-underline-offset:.2em }
   main { display:grid; gap:1rem; max-width:1500px; margin:auto; padding:1rem }
   .file-facts,.toolbar { display:flex; flex-wrap:wrap; gap:.7rem; align-items:center; padding:.7rem; background:#fff; border-radius:.5rem }
   .track-controls { display:flex; flex-wrap:wrap; gap:.55rem 1rem; padding:.75rem 1rem; border:1px solid #b9c6d2; border-radius:.5rem; background:#fff }
@@ -240,6 +248,6 @@
   .workspace { display:grid; grid-template-columns:minmax(0,1fr); gap:1rem; min-width:0 }
   .canvas-alt { margin:.35rem 0; font-size:.85rem } .warnings { padding:1rem; background:#fff8db; border-left:5px solid #ad7400 }
   .error { padding:1rem; background:#fff0f1; border-left:5px solid #b31b34 } footer { padding:.55rem; color:#fff; background:#344b5e; border-radius:.3rem }
-  @media (max-width:800px) { header { display:block } .privacy { display:block; margin-top:.5rem } }
+  @media (max-width:800px) { header { align-items:flex-start; flex-direction:column } .site-links { align-items:flex-start; flex-wrap:wrap } }
   @media (prefers-reduced-motion:reduce) { :global(*) { scroll-behavior:auto !important } }
 </style>
