@@ -25,6 +25,7 @@ export const FEATURE_GROUPS: readonly FeatureGroupDefinition[] = [
   { id: 'other', label: 'Other', description: 'Unknown, obsolete, or non-standard feature keys retained by the parser.', defaultVisible: false, trackOrder: 6 },
 ]
 
+// Viewer taxonomy only: unknown keys remain intact and fall through to Other.
 const FEATURE_TYPES: Record<Exclude<FeatureGroupId, 'other'>, readonly string[]> = {
   genes: ['gene', 'cds'],
   rna: ['mrna', 'ncrna', 'misc_rna', 'precursor_rna', 'prim_transcript', 'rrna', 'trna', 'tmrna', 'exon', 'intron', "5'utr", "3'utr"],
@@ -39,6 +40,7 @@ const TYPE_TO_GROUP = new Map<string, FeatureGroupId>(
   ),
 )
 
+/** Classifies a preserved feature key case-insensitively for display only. */
 export function classifyFeatureType(featureType: string): FeatureGroupId {
   return TYPE_TO_GROUP.get(featureType.toLowerCase()) ?? 'other'
 }

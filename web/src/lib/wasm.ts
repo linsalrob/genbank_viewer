@@ -74,6 +74,7 @@ export async function translateRegion(
   geneticCode: number,
 ): Promise<TranslationDto> {
   await initializeWasm()
+  // Record identity prevents collisions between files with equal coordinates.
   const flankStart = Math.max(0, Math.floor(start) - 3)
   const flankEnd = Math.min(record.sequenceLength, Math.ceil(end) + 3)
   const key = `${recordIdentity(record)}:${flankStart}:${flankEnd}:${geneticCode}`
@@ -93,6 +94,7 @@ export async function stopCodonsInRegion(
   geneticCode: number,
 ): Promise<StopCodonDto[]> {
   await initializeWasm()
+  // GenomeCanvas rejects results from requests superseded by a newer viewport.
   const regionStart = Math.max(0, Math.floor(start))
   const regionEnd = Math.min(record.sequenceLength, Math.ceil(end))
   const key = `${recordIdentity(record)}:${regionStart}:${regionEnd}:${geneticCode}`

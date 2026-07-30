@@ -1,3 +1,5 @@
+//! Thin wasm-bindgen exports and camel-case browser DTO conversion.
+
 use genome_core::search::{search_amino_acids, search_nucleotides, SearchError};
 use genome_core::translation::{
     stop_codons_in_region, supported_genetic_codes, translate_region_six_frames, GeneticCode,
@@ -61,6 +63,7 @@ struct BrowserError {
 }
 
 #[wasm_bindgen]
+/// Parses all records and serializes browser DTOs or a structured browser error.
 pub fn parse_genbank_json(input: &str) -> Result<JsValue, JsValue> {
     let records = parse_genbank(input).map_err(|error| {
         error_value(BrowserError {
@@ -81,6 +84,7 @@ pub fn parse_genbank_record(input: &str) -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
+/// Returns a six-frame translation DTO for a zero-based half-open region.
 pub fn translate_region_json(
     sequence: &[u8],
     start: u32,
@@ -94,11 +98,13 @@ pub fn translate_region_json(
 }
 
 #[wasm_bindgen]
+/// Returns selector metadata from the Rust genetic-code registry.
 pub fn supported_genetic_codes_json() -> Result<JsValue, JsValue> {
     serialize(&supported_genetic_codes())
 }
 
 #[wasm_bindgen]
+/// Returns only table-specific stops for the six global frames in a region.
 pub fn stop_codons_in_region_json(
     sequence: &[u8],
     start: u32,
@@ -112,6 +118,7 @@ pub fn stop_codons_in_region_json(
 }
 
 #[wasm_bindgen]
+/// Runs exact nucleotide or six-frame peptide search and returns match DTOs.
 pub fn search_sequence_json(
     sequence: &[u8],
     query: &str,
@@ -138,6 +145,7 @@ pub fn search_sequence_json(
 }
 
 #[wasm_bindgen]
+/// Deserializes a core record and returns union-based CDS coding statistics.
 pub fn coding_summary_json(record_json: JsValue) -> Result<JsValue, JsValue> {
     let record: GenomeRecord = serde_wasm_bindgen::from_value(record_json).map_err(|error| {
         error_value(BrowserError {

@@ -1,7 +1,10 @@
+//! Parsed genome records and biological feature/location models.
+
 use crate::coordinates::clamp_interval;
 use crate::translation::reverse_complement;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+/// Direction relative to the forward reference sequence.
 pub enum Strand {
     Forward,
     Reverse,
@@ -9,6 +12,7 @@ pub enum Strand {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+/// Record topology declared by the GenBank `LOCUS` line.
 pub enum Topology {
     Linear,
     Circular,
@@ -16,6 +20,7 @@ pub enum Topology {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+/// A zero-based, half-open interval on the forward reference.
 pub struct Interval {
     pub start: u64,
     pub end: u64,
@@ -32,6 +37,11 @@ impl Interval {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+/// A supported location tree or preserved unsupported source expression.
+///
+/// Joined locations retain their constituent parts. Unsupported syntax retains
+/// its original text and deliberately exposes no intervals, preventing coercion
+/// into a biologically misleading bounding range.
 pub enum Location {
     Interval {
         interval: Interval,
@@ -82,12 +92,14 @@ impl Location {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+/// A GenBank qualifier, including valueless qualifiers.
 pub struct Qualifier {
     pub key: String,
     pub value: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+/// A parsed feature with its original key, location, and ordered qualifiers.
 pub struct Feature {
     pub feature_type: String,
     pub location: Location,
@@ -128,6 +140,7 @@ impl Feature {
         self.feature_type.clone()
     }
 
+    /// Extracts constituent parts in stored order without strand transformation.
     pub fn extract_sequence(&self, sequence: &[u8]) -> Vec<u8> {
         let mut out = Vec::new();
         for interval in self.intervals() {
@@ -138,6 +151,10 @@ impl Feature {
         out
     }
 
+    /// Extracts a feature in biological 5′→3′ orientation.
+    ///
+    /// Reverse joins are assembled in forward-reference order and then reverse
+    /// complemented, yielding reverse transcript order.
     pub fn extract_strand_aware_sequence(&self, sequence: &[u8]) -> Vec<u8> {
         let seq = self.extract_sequence(sequence);
         match self.strand() {
@@ -148,6 +165,7 @@ impl Feature {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+/// One parsed GenBank record and its non-fatal diagnostics.
 pub struct GenomeRecord {
     pub id: String,
     pub accession: Option<String>,
@@ -161,6 +179,7 @@ pub struct GenomeRecord {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
+/// Stable categories for non-fatal parser diagnostics.
 pub enum ParseWarningCode {
     SequenceLengthMismatch,
     UnterminatedQuotedQualifier,
@@ -171,6 +190,7 @@ pub enum ParseWarningCode {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+/// A non-fatal parser diagnostic, optionally tied to a record and source line.
 pub struct ParseWarning {
     pub record_id: Option<String>,
     pub line: Option<usize>,
@@ -179,6 +199,7 @@ pub struct ParseWarning {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+/// CDS coverage and strand counts for one record.
 pub struct CodingSummary {
     pub sequence_length: u64,
     pub cds_count: usize,
@@ -189,6 +210,10 @@ pub struct CodingSummary {
 }
 
 impl GenomeRecord {
+    /// Calculates coding density from the union of in-bounds CDS parts.
+    ///
+    /// Overlapping CDS bases are counted once; joined parts contribute each
+    /// covered interval, and the result is divided by observed sequence length.
     pub fn coding_summary(&self) -> CodingSummary {
         let cds = self
             .features

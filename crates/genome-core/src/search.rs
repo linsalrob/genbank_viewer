@@ -1,8 +1,12 @@
+//! Exact nucleotide and all-six-frame peptide search.
+
 use crate::translation::{codon_to_aa_with_code, reverse_complement, GeneticCode};
 use crate::Strand;
 use serde::Serialize;
 
+/// Minimum normalized nucleotide query length.
 pub const MIN_NUCLEOTIDE_QUERY: usize = 3;
+/// Minimum normalized peptide query length.
 pub const MIN_AMINO_ACID_QUERY: usize = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -14,6 +18,7 @@ pub enum SearchMatchType {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+/// A match represented as a zero-based half-open forward-reference interval.
 pub struct SequenceSearchMatch {
     pub start: u64,
     pub end: u64,
@@ -63,6 +68,10 @@ pub enum SearchQueryType {
     AminoAcid,
 }
 
+/// Normalizes FASTA-like input and validates the selected search alphabet.
+///
+/// Header lines are removed, whitespace is ignored, case is normalized, and
+/// nucleotide `U` is converted to `T`.
 pub fn normalize_query(input: &str, query_type: SearchQueryType) -> Result<Vec<u8>, SearchError> {
     let mut normalized = Vec::new();
     for line in input.lines() {
@@ -207,6 +216,10 @@ fn nucleotide_matches(reference: &[u8], query: &[u8]) -> bool {
     })
 }
 
+/// Searches overlapping forward and reverse-complement windows.
+///
+/// IUPAC symbols match by non-empty set intersection. A window matching both
+/// orientations is emitted once with [`Strand::Unknown`].
 pub fn search_nucleotides(
     sequence: &[u8],
     query_input: &str,
@@ -275,6 +288,11 @@ fn amino_acid_matches(translated: &[u8], query: &[u8]) -> bool {
         })
 }
 
+/// Searches overlapping peptide windows in all six global reading frames.
+///
+/// Returned reverse-frame intervals remain increasing coordinates on the
+/// forward reference. `X`, `B`, `Z`, and `J` use the ambiguity semantics
+/// documented in the user reference.
 pub fn search_amino_acids(
     sequence: &[u8],
     query_input: &str,

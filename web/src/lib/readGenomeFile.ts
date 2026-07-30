@@ -29,6 +29,7 @@ async function decompressGzip(bytes: Uint8Array): Promise<Uint8Array> {
   }
 }
 
+/** Reads an accepted GenBank file and decompresses gzip bytes entirely locally. */
 export async function readGenbankFile(file: File): Promise<string> {
   if (!GENBANK_FILENAME.test(file.name)) {
     throw new GenomeFileError(
