@@ -1,12 +1,14 @@
 # genbank_viewer
 
+[![Documentation Status](https://readthedocs.org/projects/genbank-viewer/badge/?version=latest)](https://genbank-viewer.readthedocs.io/en/latest/)
+
+**[Live application](https://linsalrob.github.io/genbank_viewer/)** · **[Documentation](https://genbank-viewer.readthedocs.io/en/latest/)**
+
 genbank_viewer is a local-first, Artemis-inspired GenBank genome viewer. Rust handles biological models, coordinates, parsing, translation, and coding statistics; WebAssembly exposes serialisable data; Svelte and Canvas 2D provide the interactive browser interface.
 
-Use the live application at **https://linsalrob.github.io/genbank_viewer/**.
+The live application runs the viewer; the Read the Docs site contains user, reference, installation, and contributor guidance.
 
-![genbank_viewer screenshot placeholder](docs/assets/genbank-viewer-placeholder.svg)
-
-> Screenshot placeholder: maintainers can replace this asset after running `npm run dev` and loading `test-data/two_records.gbk`.
+![genbank_viewer showing a locally loaded gzip-compressed GenBank record](docs/assets/viewer-layout-gzip.png)
 
 ## Capabilities
 
@@ -56,10 +58,10 @@ cargo install wasm-pack
 cd web
 npm ci
 npm run build
-npm run preview
+npm run preview -- --host 127.0.0.1
 ```
 
-Open **http://localhost:4173/genbank_viewer/**. Vite's production mode selects the project-site base used in deployment, while normal `npm run dev` development continues to use `/`.
+Open **http://127.0.0.1:4173/genbank_viewer/**. Vite's production mode selects the project-site base used in deployment, while normal `npm run dev` development continues to use `/`.
 
 If WASM fails to initialise, confirm that `web/dist` contains a `.wasm` file and that `web/dist/index.html` uses `/genbank_viewer/assets/` URLs. In the browser's Network panel, filter for `wasm` and check for a successful response rather than a 404 or HTML response; in Console, look for MIME-type, fetch, compilation, or initialisation errors. The WASM URL must remain an asset emitted by Vite, not a CDN URL.
 
@@ -80,7 +82,7 @@ cd web && npm run test:e2e
 python -m mkdocs build --strict
 ```
 
-See the [documentation home](docs/index.md), [user tutorial](docs/how-to-use-genbank_viewer.md), [installation guide](docs/installation.md), and [contribution guide](docs/contributing.md).
+See the [documentation home](docs/index.md), [user tutorial](docs/how-to-use-genbank_viewer.md), [installation guide](docs/installation.md), [changelog](CHANGELOG.md), and [contribution guide](docs/contributing.md).
 
 ## Status and limitations
 

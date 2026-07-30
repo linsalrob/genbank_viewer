@@ -25,13 +25,4 @@ Unsupported location text is stored in an explicit variant with no intervals. It
 
 Gzip bytes are decompressed in the browser before UTF-8 decoding and parsing. Both file-picker and drag-and-drop inputs use the same reader. Compression does not change the GenBank grammar or Rust parser.
 
-## Feature display groups
-
-- **Genes and CDSs:** `gene`, `CDS`
-- **RNAs and transcripts:** `mRNA`, `ncRNA`, `misc_RNA`, `precursor_RNA`, `prim_transcript`, `rRNA`, `tRNA`, `tmRNA`, `exon`, `intron`, `5'UTR`, `3'UTR`
-- **Protein processing:** `mat_peptide`, `sig_peptide`, `transit_peptide`, `propeptide`
-- **Regulatory and genomic regions:** operon/regulatory/binding/origin/repeat/mobile-element/recombination/structure and miscellaneous regional keys
-- **Assembly, source, and variation:** `source`, gaps, uncertainty, variation/difference, modified bases, and old sequence
-- **Other:** every unlisted key
-
-Matching is case-insensitive only for grouping; original spelling, coordinates, and qualifiers remain unchanged. This taxonomy is for display, not an official INSDC hierarchy or complete qualifier validator. Unknown and obsolete keys do not make a record invalid and remain viewable under **Other**.
+See [Feature keys and display groups](feature-groups.md) for the exact frontend registry and [Qualifiers](qualifiers.md) for retained feature metadata.

@@ -1,5 +1,9 @@
 # How to use genbank_viewer
 
+Open the [live application](https://linsalrob.github.io/genbank_viewer/) in a current Chrome, Edge, Firefox, or Safari browser. No account is needed.
+
+![genbank_viewer after loading the first record of a local multi-record file](assets/viewer-loaded.png)
+
 1. Open the genbank_viewer URL in a supported browser.
 2. Under **Open a local GenBank file**, choose a `.gb`, `.gbk`, `.genbank`, or `.gbff` file. Gzip forms such as `.gb.gz`, `.gbk.gz`, `.genbank.gz`, and `.gbff.gz` are also accepted and decompressed locally.
 3. Alternatively, drag the file onto the dashed loading area. The filename, size, parsing state, record count, and warning count appear.
@@ -16,7 +20,7 @@
 14. In detailed mode, stops are red `*`. Enable **Start codons** to outline accepted starts; starts are a codon property and do not change the amino-acid letter.
 15. **Genetic code** chooses among all current NCBI translation tables and controls the compact stop bars as well as detailed letters, starts, and stops. Table 11 (Bacterial, Archaeal and Plant Plastid) remains the default. Options marked “record” occur in a `/transl_table` qualifier in the current record.
 16. Click a CDS arrow to select it; click empty Canvas space to clear it.
-17. The full-width Feature Inspector is directly below the Canvas. It shows locus tag, product, gene, protein ID, translation, every qualifier, joined intervals, partial boundaries, and technical `[start,end)` coordinates.
+17. The full-width **Feature inspector** is directly below the Canvas. It shows locus tag, product, gene, protein ID, translation, every qualifier, joined intervals, partial boundaries, and technical `[start,end)` coordinates.
 18. When a selected CDS declares `/transl_table`, the inspector displays it prominently. **Use feature code N** changes the viewer only when requested; selecting a feature never changes the global code automatically.
 19. Coding density is the percentage of bases covered by the union of CDS parts, so overlaps are counted once.
 20. Expand parser warnings to review length mismatches, unsupported locations, malformed qualifiers, and out-of-bounds features.
@@ -29,32 +33,13 @@ Alternative nuclear tables 27, 28, and 31 include codons whose stop-versus-amino
 
 ![Detailed view with nucleotide and six-frame amino-acid letters](assets/high-zoom-six-frames.png)
 
-## Searching by nucleotide or amino-acid sequence
+## Continue with focused guides
 
-Open a record, then use **Sequence search** above the genome Canvas. Choose **Nucleotide** or **Amino acid**, paste a sequence, and press **Search**. A textarea accepts FASTA headers and wrapped sequences; press Ctrl+Enter or Cmd+Enter to search from the keyboard. Whitespace and header lines beginning with `>` are removed, letters are uppercased, and RNA `U` is treated as DNA `T`. Other punctuation and digits produce an explicit validation error.
-
-Nucleotide searches examine the forward reference and the reverse complement. IUPAC symbols `RYSWKMBDHVN` are supported in both query and record: positions match when their possible-base sets overlap. Palindromic or otherwise identical forward/reverse hits are reported once as **both strands**. In the stop-track view, the highlight uses the narrow `F nt` or `R nt` lane rather than implying an amino-acid frame; a both-strand result marks both lanes. At sequence zoom, it moves onto the forward nucleotide or reverse-complement letter row. Queries must contain at least three bases.
-
-Amino-acid searches translate all six genomic frames with the genetic code currently selected in the toolbar. Results identify frames `+1` through `+3` or `-1` through `-3`, and their coordinates span all codons encoding the peptide. At low zoom, only that result's labelled reading-frame row is highlighted; the other five remain unchanged and stop bars remain visible. At high zoom, the same interval moves onto the corresponding amino-acid letter row. `X` matches any translated residue except a stop; `B` matches D/N, `Z` matches E/Q, `J` matches I/L, and `*` matches a stop exactly. Peptide queries must contain at least two residues. Changing the genetic code automatically repeats a current peptide search because codon interpretation can change.
-
-Result coordinates are one-based and inclusive even though the application uses zero-based, half-open intervals internally. The first hit is selected automatically. Use **Previous**, **Next**, or a result row to centre it with flanking context; navigation wraps at either end. Moving between peptide hits in different frames moves the highlight to the matching signed frame immediately. A hatched, outlined band marks the interval without changing feature selection or hit testing. Its presentation intentionally changes at the 1.6 bp/pixel render threshold while the selected result and genomic coordinates stay the same. **Clear search** removes the query, results, and highlight. Loading another file or record also clears them.
-
-Searching is exact: there are no mismatches, gaps, alignments, regular expressions, or protein-domain searches. All normalization, six-frame translation, matching, navigation data, and highlighting remain inside the browser; query and record sequences are never uploaded.
-
-## Annotation tracks
-
-The **Annotation tracks** controls group parsed features into five biological display groups plus an **Other** fallback. **Genes and CDSs** and **RNAs and transcripts** are visible initially. Protein processing, regulatory and broad genomic regions, assembly/source/variation, and Other are initially hidden. Toggle any group to redraw immediately; choices remain active while switching records or loading another file in the same browser session.
-
-Forward and reverse annotations use separate rows around the six reading frames. Genes/CDSs use directional arrows, RNAs use outlined arrows, protein-processing annotations use narrower arrows, and broad regions use translucent outlined bands. Source is part of **Assembly, source, and variation**, is hidden by default, and is subdued and dashed when enabled. Click or hover any visible annotation to inspect its original key, coordinates, and complete qualifier list below the Canvas.
-
-Unknown, obsolete, and non-standard keys are preserved exactly and are available under **Other**. This grouping is a display taxonomy, not an official INSDC hierarchy or validation result.
-
-![Default Genes/CDSs and RNA annotation tracks](assets/grouped-tracks-default.png)
-
-![All annotation track groups enabled](assets/grouped-tracks-all.png)
-
-![Nucleotide sequence search with a selected, highlighted result](assets/sequence-search.png)
-
-![Whole-genome screenshot placeholder](assets/genbank-viewer-placeholder.svg)
-
-To regenerate screenshots, run the development server, load `test-data/two_records.gbk`, capture whole-genome and base-resolution views at 1440 px width, and replace the named placeholder while keeping useful alternative text.
+- [Loading files](loading-files.md)
+- [Navigating and zooming](navigation.md)
+- [Annotation tracks](annotation-tracks.md)
+- [Feature inspection](feature-inspection.md)
+- [Six reading frames](translation.md)
+- [Sequence-search semantics](search-semantics.md)
+- [Genetic codes](genetic-codes.md)
+- [Warnings and errors](warnings-and-errors.md)

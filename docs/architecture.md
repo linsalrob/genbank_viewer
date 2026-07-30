@@ -44,3 +44,11 @@ Canvas translation requests carry a monotonically increasing request number. A r
 Visible features are greedily lane-packed per group and strand after sorting by start, longest end, and feature ID. Joined features use their bounding interval for packing while retaining every constituent piece for drawing and hit testing. Packing is capped at three lanes; excess overlap uses a deterministic compact fallback rather than dropping annotations.
 
 Visual stacking and hit priority proceed from source/assembly and broad regions to gene, RNA, and processing annotations. Thus source wins a click only when no more specific visible feature occupies the hit position. Search highlights remain non-interactive.
+
+## Frontend state and component contracts
+
+`App.svelte` owns the loaded records, selected record/feature, viewport, genetic code, visible groups, and search state. `FileLoader` emits decoded text and file metadata; `GenomeCanvas` accepts immutable render inputs and emits viewport/selection events; `SequenceSearch` emits search, navigation, clear, and type-change events; `FeatureInspector` can request a declared feature code. State is not persisted to browser storage.
+
+`GenomeCanvas.updateRenderData()` assigns each asynchronous WASM request a monotonically increasing number and discards a result when a newer request or different render mode has superseded it. This prevents a slow translation or stop scan from repainting stale data after rapid pan, zoom, or genetic-code changes.
+
+See locally generated [Rust API documentation](development.md#rust-api-documentation) for public crate contracts and [Maintaining documentation](documentation.md) for keeping architecture text and screenshots aligned with UI changes.
